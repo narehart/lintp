@@ -1,0 +1,75 @@
+// Whitespace and comments handling
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "#" ~ (!"\n" ~ ANY)* ~ ("\n" | EOI) }
+
+// Main expression rule for top-level parsing
+top_level = { or_expr ~ EOI }
+
+// Expression rule for internal use (in lists, function calls, etc.)
+expression = { or_expr }
+
+// Logical operators with precedence
+or_expr = { and_expr ~ (or_op ~ and_expr)* }
+and_expr = { not_expr ~ (and_op ~ not_expr)* }
+not_expr = { (not_op ~ not_expr) | comparison_expr }
+comparison_expr = { add_expr ~ (comp_op ~ add_expr)? }
+add_expr = { mul_expr ~ (add_op ~ mul_expr)* }
+mul_expr = { unary_expr ~ (mul_op ~ unary_expr)* }
+unary_expr = { minus_op? ~ primary }
+
+// Operator definitions
+or_op = { "||" }
+and_op = { "&&" }
+not_op = { "!" }
+comp_op = { "==" | "!=" | "<=" | ">=" | "<" | ">" }
+add_op = { "+" | "-" }
+mul_op = { "*" | "/" | "%" }
+minus_op = { "-" }
+
+// Primary expressions
+primary = { index_expr }
+
+// Array indexing operations
+index_expr = { base_expr ~ ("[" ~ expression ~ "]")* }
+
+base_expr = {
+    variable |
+    string_literal |
+    integer_literal |
+    boolean_literal |
+    regex_literal |
+    list_literal |
+    string_template |
+    function_call |
+    reference |
+    "(" ~ expression ~ ")"
+}
+
+// Variable references
+variable = @{ "$" ~ identifier }
+identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-")* }
+
+// Literals  
+string_literal = ${ "\"" ~ inner_string ~ "\"" | "'" ~ inner_single_string ~ "'" }
+inner_string = @{ (escape_seq | template_expr | !("\"" | "\\") ~ ANY)* }
+inner_single_string = @{ (escape_seq | !("'" | "\\") ~ ANY)* }
+template_expr = ${ "${" ~ expression ~ "}" }
+escape_seq = @{ "\\" ~ ANY }
+
+integer_literal = @{ "-"? ~ ASCII_DIGIT+ }
+boolean_literal = @{ "true" | "false" }
+regex_literal = ${ "/" ~ inner_regex ~ "/" }
+inner_regex = @{ (regex_escape | !("/" | "\\") ~ ANY)* }
+regex_escape = @{ "\\" ~ ANY }
+
+// Collections
+list_literal = { "[" ~ (expression ~ ("," ~ expression)*)? ~ ","? ~ "]" }
+
+// String templates with embedded expressions
+string_template = ${ "${" ~ expression ~ "}" }
+
+// Function calls
+function_call = { identifier ~ "(" ~ (expression ~ ("," ~ expression)*)? ~ ","? ~ ")" }
+
+// References to custom matchers
+reference = @{ identifier }

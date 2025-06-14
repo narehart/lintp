@@ -1,0 +1,60 @@
+[package]
+name = "lintp"
+version = "0.1.0"
+edition = "2021"
+description = "File system linter with a custom DSL for directory structure validation"
+authors = ["Your Name <your.email@example.com>"]
+license = "MIT"
+
+# Both lib and bin targets
+[[bin]]
+name = "lintp"
+path = "src/main.rs"
+
+[lib]
+name = "lintp"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1.0"
+thiserror = "1.0"
+clap = { version = "4.0", features = ["derive"] }
+pest = "2.5"
+pest_derive = "2.5"
+glob = "0.3"
+walkdir = "2.3"
+regex = "1.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+colored = "2.0"
+
+[dev-dependencies]
+tempfile = "3.3"
+
+[[test]]
+name = "parser_tests"
+path = "tests/parser_tests.rs"
+
+[[test]]
+name = "evaluator_tests"
+path = "tests/evaluator_tests.rs"
+
+[[test]]
+name = "functions_tests"
+path = "tests/functions_tests.rs"
+
+[[test]]
+name = "config_tests"
+path = "tests/config_tests.rs"
+
+[[test]]
+name = "lint_tests"
+path = "tests/lint_tests.rs"
+
+[[test]]
+name = "integration_tests"
+path = "tests/integration_tests.rs"
+
+[[test]]
+name = "advanced_dsl_tests"
+path = "tests/advanced_dsl_tests.rs"

@@ -1,0 +1,31 @@
+{
+  "name": "lintp",
+  "version": "1.0.0",
+  "description": "A robust file system linter with a powerful DSL engine written in Rust",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "prettier"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/narehart/lintp.git"
+  },
+  "keywords": [
+    "fs",
+    "path",
+    "ls",
+    "file",
+    "system",
+    "lint"
+  ],
+  "author": "Nico Arehart",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/narehart/lintp/issues"
+  },
+  "homepage": "https://github.com/narehart/lintp#readme",
+  "devDependencies": {
+    "prettier-plugin-rust": "^0.1.9"
+  }
+}
