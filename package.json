@@ -1,9 +1,13 @@
 {
   "name": "lintp",
-  "version": "1.0.0",
-  "description": "A robust file system linter with a powerful DSL engine written in Rust",
+  "version": "0.1.0",
+  "description": "A powerful file system linter that validates directory structures and file naming conventions using a custom DSL",
   "main": "index.js",
+  "bin": {
+    "lintp": "./bin/lintp"
+  },
   "scripts": {
+    "postinstall": "node scripts/install.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "format": "prettier"
   },
@@ -12,19 +16,41 @@
     "url": "git+https://github.com/narehart/lintp.git"
   },
   "keywords": [
+    "linter",
+    "file-system",
+    "naming-conventions",
+    "dsl",
+    "validation",
+    "cli",
+    "rust",
     "fs",
     "path",
-    "ls",
-    "file",
-    "system",
-    "lint"
+    "directory-structure"
   ],
-  "author": "Nico Arehart",
-  "license": "ISC",
+  "author": "Nicholas Arehart",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/narehart/lintp/issues"
   },
-  "homepage": "https://github.com/narehart/lintp#readme",
+  "homepage": "https://narehart.github.io/lintp/",
+  "files": [
+    "bin/",
+    "scripts/",
+    "index.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=14"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "devDependencies": {
     "prettier-plugin-rust": "^0.1.9"
   }

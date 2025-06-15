@@ -1,0 +1,93 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths: 
+      - 'docs/**'
+      - 'README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        
+      - name: Create index.html
+        run: |
+          mkdir -p _site
+          cat > _site/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>lintp Documentation</title>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <style>
+                  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 40px; }
+                  .nav { margin: 20px 0; }
+                  .nav a { margin-right: 20px; text-decoration: none; color: #0366d6; }
+                  .nav a:hover { text-decoration: underline; }
+              </style>
+          </head>
+          <body>
+              <h1>lintp Documentation</h1>
+              <p>A powerful file system linter with a custom DSL for validation rules.</p>
+              
+              <div class="nav">
+                  <a href="README.html">Getting Started</a>
+                  <a href="docs/DSL_REFERENCE.html">DSL Reference</a>
+                  <a href="docs/EXAMPLES.html">Examples</a>
+                  <a href="docs/COMMON_PATTERNS.html">Common Patterns</a>
+              </div>
+              
+              <h2>Quick Links</h2>
+              <ul>
+                  <li><a href="README.html">README - Installation and Quick Start</a></li>
+                  <li><a href="docs/DSL_REFERENCE.html">DSL Reference - Complete language reference</a></li>
+                  <li><a href="docs/EXAMPLES.html">Examples - Real-world configurations</a></li>
+                  <li><a href="docs/COMMON_PATTERNS.html">Common Patterns - Reusable validation patterns</a></li>
+              </ul>
+          </body>
+          </html>
+          EOF
+          
+      - name: Convert Markdown to HTML
+        run: |
+          # Install pandoc
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+          
+          # Convert README.md
+          pandoc README.md -o _site/README.html --standalone --metadata title="lintp README"
+          
+          # Convert docs
+          mkdir -p _site/docs
+          for file in docs/*.md; do
+            filename=$(basename "$file" .md)
+            pandoc "$file" -o "_site/docs/${filename}.html" --standalone --metadata title="lintp ${filename}"
+          done
+          
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
