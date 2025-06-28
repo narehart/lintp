@@ -9,5 +9,6 @@
     "editor.defaultFormatter": "rust-lang.rust-analyzer"
   },
   "rust-analyzer.rustfmt.extraArgs": ["--edition", "2021"],
-  "rust-analyzer.checkOnSave.command": "check"
+  "rust-analyzer.checkOnSave.command": "check",
+  "editor.formatOnSave": true
 }
