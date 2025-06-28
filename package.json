@@ -9,7 +9,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "sync-toml": "node scripts/sync-toml-to-package.js",
-    "prepublishOnly": "npm run sync-toml"
+    "prepublishOnly": "npm run sync-toml",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "repository": {
     "type": "git",

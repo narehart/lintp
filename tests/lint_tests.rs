@@ -1,7 +1,7 @@
 use anyhow::Result;
-use lintp::config::{Config, ParsedConfig};
+use lintp::config::{ Config, ParsedConfig };
 use lintp::dsl::parser::parse_expression;
-use lintp::lint::{run_lint, LintResult};
+use lintp::lint::{ run_lint, LintResult };
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -10,367 +10,299 @@ use test_constants::*;
 
 /// Structure to hold both the temporary directory and the path
 struct TestDirectory {
-    _temp_dir: tempfile::TempDir, // Underscore prefix indicates it's kept for its lifetime
-    path: PathBuf,
+  _temp_dir: tempfile::TempDir, // Underscore prefix indicates it's kept for its lifetime
+  path: PathBuf,
 }
 
 /// Helper function to create a temporary directory structure for testing
 fn create_test_directory() -> Result<TestDirectory> {
-    let temp_dir = tempfile::tempdir()?;
-    let root_path = temp_dir.path().to_path_buf();
+  let temp_dir = tempfile::tempdir()?;
+  let root_path = temp_dir.path().to_path_buf();
 
-    // Create directory structure
-    let src_dir = root_path.join("src");
-    std::fs::create_dir(&src_dir)?;
+  // Create directory structure
+  let src_dir = root_path.join("src");
+  std::fs::create_dir(&src_dir)?;
 
-    let components_dir = src_dir.join("components");
-    std::fs::create_dir(&components_dir)?;
+  let components_dir = src_dir.join("components");
+  std::fs::create_dir(&components_dir)?;
 
-    let utils_dir = src_dir.join("utils");
-    std::fs::create_dir(&utils_dir)?;
+  let utils_dir = src_dir.join("utils");
+  std::fs::create_dir(&utils_dir)?;
 
-    let api_dir = src_dir.join("api");
-    std::fs::create_dir(&api_dir)?;
+  let api_dir = src_dir.join("api");
+  std::fs::create_dir(&api_dir)?;
 
-    let tests_dir = root_path.join("tests");
-    std::fs::create_dir(&tests_dir)?;
+  let tests_dir = root_path.join("tests");
+  std::fs::create_dir(&tests_dir)?;
 
-    // Create valid test files using standardized naming
-    std::fs::write(src_dir.join("index.js"), "// Main entry file")?;
-    std::fs::write(src_dir.join("app.js"), "// App file")?;
-    std::fs::write(components_dir.join("Button.js"), "// Button component")?;
-    std::fs::write(components_dir.join("Card.jsx"), "// Card component")?;
-    std::fs::write(utils_dir.join("format-date.js"), "// Date formatting")?;
-    std::fs::write(utils_dir.join("helper-utils.js"), "// Helper utilities")?;
-    std::fs::write(api_dir.join("userService.js"), "// User service API")?;
-    std::fs::write(tests_dir.join("app.test.js"), "// App tests")?;
+  // Create valid test files using standardized naming
+  std::fs::write(src_dir.join("index.js"), "// Main entry file")?;
+  std::fs::write(src_dir.join("app.js"), "// App file")?;
+  std::fs::write(components_dir.join("Button.js"), "// Button component")?;
+  std::fs::write(components_dir.join("Card.jsx"), "// Card component")?;
+  std::fs::write(utils_dir.join("format-date.js"), "// Date formatting")?;
+  std::fs::write(utils_dir.join("helper-utils.js"), "// Helper utilities")?;
+  std::fs::write(api_dir.join("userService.js"), "// User service API")?;
+  std::fs::write(tests_dir.join("app.test.js"), "// App tests")?;
 
-    // Create directories that should be ignored
-    let node_modules_dir = root_path.join("node_modules");
-    std::fs::create_dir(&node_modules_dir)?;
-    std::fs::write(
-        node_modules_dir.join("some-package.js"),
-        "// Should be ignored",
-    )?;
+  // Create directories that should be ignored
+  let node_modules_dir = root_path.join("node_modules");
+  std::fs::create_dir(&node_modules_dir)?;
+  std::fs::write(node_modules_dir.join("some-package.js"), "// Should be ignored")?;
 
-    let dist_dir = root_path.join("dist");
-    std::fs::create_dir(&dist_dir)?;
-    std::fs::write(dist_dir.join("bundle.js"), "// Should be ignored")?;
+  let dist_dir = root_path.join("dist");
+  std::fs::create_dir(&dist_dir)?;
+  std::fs::write(dist_dir.join("bundle.js"), "// Should be ignored")?;
 
-    Ok(TestDirectory {
-        _temp_dir: temp_dir,
-        path: root_path,
-    })
+  Ok(TestDirectory {
+    _temp_dir: temp_dir,
+    path: root_path,
+  })
 }
 
 /// Helper function to create a test config
 fn create_test_config() -> Result<ParsedConfig> {
-    // Create config content as YAML
-    let config_content = create_standard_test_config();
+  // Create config content as YAML
+  let config_content = create_standard_test_config();
 
-    // Parse the config string
-    let config: Config = serde_yaml::from_str(config_content)?;
+  // Parse the config string
+  let config: Config = serde_yaml::from_str(config_content)?;
 
-    // Create custom matchers map
-    let mut custom_matchers = HashMap::new();
-    for (name, expr) in &config.lintp.custom_matchers {
-        custom_matchers.insert(name.clone(), parse_expression(expr)?);
-    }
+  // Create custom matchers map
+  let mut custom_matchers = HashMap::new();
+  for (name, expr) in &config.lintp.custom_matchers {
+    custom_matchers.insert(name.clone(), parse_expression(expr)?);
+  }
 
-    // Create parsed config
-    let parsed_config = ParsedConfig {
-        raw: config,
-        parsed_matchers: custom_matchers,
-    };
+  // Create parsed config
+  let parsed_config = ParsedConfig {
+    raw: config,
+    parsed_matchers: custom_matchers,
+  };
 
-    Ok(parsed_config)
+  Ok(parsed_config)
 }
 
 /// Helper function to create invalid test files
 fn create_invalid_files(test_dir: &TestDirectory) -> Result<()> {
-    // Files that violate naming conventions
-    std::fs::write(
-        test_dir.path.join("src").join("INVALID_CASE.js"),
-        "// Invalid naming",
-    )?;
-    std::fs::write(
-        test_dir
-            .path
-            .join("src")
-            .join("components")
-            .join("invalidbutton.js"),
-        "// Invalid PascalCase for component",
-    )?;
-    std::fs::write(
-        test_dir
-            .path
-            .join("src")
-            .join("utils")
-            .join("INVALID_HELPER.js"),
-        "// Invalid kebab-case for utility",
-    )?;
-    std::fs::write(
-        test_dir.path.join("src").join("api").join("INVALID-API.js"),
-        "// Invalid camelCase for API",
-    )?;
+  // Files that violate naming conventions
+  std::fs::write(test_dir.path.join("src").join("INVALID_CASE.js"), "// Invalid naming")?;
+  std::fs::write(
+    test_dir.path.join("src").join("components").join("invalidbutton.js"),
+    "// Invalid PascalCase for component"
+  )?;
+  std::fs::write(
+    test_dir.path.join("src").join("utils").join("INVALID_HELPER.js"),
+    "// Invalid kebab-case for utility"
+  )?;
+  std::fs::write(
+    test_dir.path.join("src").join("api").join("INVALID-API.js"),
+    "// Invalid camelCase for API"
+  )?;
 
-    Ok(())
+  Ok(())
 }
 
 /// Helper function to count lint results by type
 fn count_results(results: &[LintResult]) -> (usize, usize) {
-    let successes = results
-        .iter()
-        .filter(|r| matches!(r, LintResult::Success(_)))
-        .count();
-    let failures = results
-        .iter()
-        .filter(|r| matches!(r, LintResult::Failure { .. }))
-        .count();
-    (successes, failures)
+  let successes = results
+    .iter()
+    .filter(|r| matches!(r, LintResult::Success(_)))
+    .count();
+  let failures = results
+    .iter()
+    .filter(|r| matches!(r, LintResult::Failure { .. }))
+    .count();
+  (successes, failures)
 }
 
 /// Helper function to count failures for a specific file
 fn count_file_failures(results: &[LintResult], filename: &str) -> usize {
-    results
-        .iter()
-        .filter(|r| {
-            if let LintResult::Failure { path, .. } = r {
-                path.to_string_lossy().contains(filename)
-            } else {
-                false
-            }
-        })
-        .count()
+  results
+    .iter()
+    .filter(|r| {
+      if let LintResult::Failure { path, .. } = r {
+        path.to_string_lossy().contains(filename)
+      } else {
+        false
+      }
+    })
+    .count()
 }
 
 /// Tests for running lint on a valid directory structure
 #[test]
 fn test_lint_valid_structure() -> Result<()> {
-    let test_dir = create_test_directory()?;
-    let config = create_test_config()?;
+  let test_dir = create_test_directory()?;
+  let config = create_test_config()?;
 
-    let results = run_lint(&test_dir.path, &config, false)?;
+  let results = run_lint(&test_dir.path, &config, false)?;
 
-    // Count successes and failures
-    let successes = results
-        .iter()
-        .filter(|r| matches!(r, LintResult::Success(_)))
-        .count();
-    let failures = results
-        .iter()
-        .filter(|r| matches!(r, LintResult::Failure { .. }))
-        .count();
+  // Count successes and failures
+  let successes = results
+    .iter()
+    .filter(|r| matches!(r, LintResult::Success(_)))
+    .count();
+  let failures = results
+    .iter()
+    .filter(|r| matches!(r, LintResult::Failure { .. }))
+    .count();
 
-    // All files should pass
-    assert!(failures == 0, "Expected 0 failures, got {}", failures);
-    assert!(successes > 0, "Expected more than 0 successes");
+  // All files should pass
+  assert!(failures == 0, "Expected 0 failures, got {}", failures);
+  assert!(successes > 0, "Expected more than 0 successes");
 
-    Ok(())
+  Ok(())
 }
 
 /// Tests for running lint with invalid files
 #[test]
 fn test_lint_invalid_structure() -> Result<()> {
-    let test_dir = create_test_directory()?;
-    let config = create_test_config()?;
+  let test_dir = create_test_directory()?;
+  let config = create_test_config()?;
 
-    // Create invalid files
-    create_invalid_files(&test_dir)?;
+  // Create invalid files
+  create_invalid_files(&test_dir)?;
 
-    let results = run_lint(&test_dir.path, &config, false)?;
-    let (_, failures) = count_results(&results);
+  let results = run_lint(&test_dir.path, &config, false)?;
+  let (_, failures) = count_results(&results);
 
-    // Should have at least 4 failures (one for each invalid file)
-    assert!(
-        failures >= 4,
-        "Expected at least 4 failures, got {}",
-        failures
-    );
+  // Should have at least 4 failures (one for each invalid file)
+  assert!(failures >= 4, "Expected at least 4 failures, got {}", failures);
 
-    // Verify specific file failures
-    assert_eq!(
-        count_file_failures(&results, "INVALID_CASE.js"),
-        1,
-        "INVALID_CASE.js should fail"
-    );
-    assert_eq!(
-        count_file_failures(&results, "invalidbutton.js"),
-        1,
-        "invalidbutton.js should fail"
-    );
-    assert_eq!(
-        count_file_failures(&results, "INVALID_HELPER.js"),
-        1,
-        "INVALID_HELPER.js should fail"
-    );
-    assert_eq!(
-        count_file_failures(&results, "INVALID-API.js"),
-        1,
-        "INVALID-API.js should fail"
-    );
+  // Verify specific file failures
+  assert_eq!(count_file_failures(&results, "INVALID_CASE.js"), 1, "INVALID_CASE.js should fail");
+  assert_eq!(count_file_failures(&results, "invalidbutton.js"), 1, "invalidbutton.js should fail");
+  assert_eq!(
+    count_file_failures(&results, "INVALID_HELPER.js"),
+    1,
+    "INVALID_HELPER.js should fail"
+  );
+  assert_eq!(count_file_failures(&results, "INVALID-API.js"), 1, "INVALID-API.js should fail");
 
-    Ok(())
+  Ok(())
 }
 
 /// Tests for validating ignore patterns
 #[test]
 fn test_lint_ignore_patterns() -> Result<()> {
-    let test_dir = create_test_directory()?;
-    let mut config = create_test_config()?;
+  let test_dir = create_test_directory()?;
+  let mut config = create_test_config()?;
 
-    // Add additional ignore patterns for testing
-    config.raw.lintp.ignore.push("src/**/*.jsx".to_string());
-    config.raw.lintp.ignore.push("tests".to_string());
+  // Add additional ignore patterns for testing
+  config.raw.lintp.ignore.push("src/**/*.jsx".to_string());
+  config.raw.lintp.ignore.push("tests".to_string());
 
-    let results = run_lint(&test_dir.path, &config, false)?;
+  let results = run_lint(&test_dir.path, &config, false)?;
 
-    // Helper function to check if any results contain a pattern
-    let contains_pattern = |pattern: &str| {
-        results.iter().any(|r| match r {
-            LintResult::Success(path) => path.to_string_lossy().contains(pattern),
-            LintResult::Failure { path, .. } => path.to_string_lossy().contains(pattern),
-        })
-    };
+  // Helper function to check if any results contain a pattern
+  let contains_pattern = |pattern: &str| {
+    results.iter().any(|r| {
+      match r {
+        LintResult::Success(path) => path.to_string_lossy().contains(pattern),
+        LintResult::Failure { path, .. } => path.to_string_lossy().contains(pattern),
+      }
+    })
+  };
 
-    // Verify ignored patterns are not present in results
-    assert!(!contains_pattern(".jsx"), "JSX files should be ignored");
-    assert!(
-        !contains_pattern("node_modules"),
-        "node_modules should be ignored"
-    );
-    assert!(
-        !contains_pattern("dist"),
-        "dist directory should be ignored"
-    );
-    assert!(
-        !contains_pattern("tests"),
-        "tests directory should be ignored"
-    );
+  // Verify ignored patterns are not present in results
+  assert!(!contains_pattern(".jsx"), "JSX files should be ignored");
+  assert!(!contains_pattern("node_modules"), "node_modules should be ignored");
+  assert!(!contains_pattern("dist"), "dist directory should be ignored");
+  assert!(!contains_pattern("tests"), "tests directory should be ignored");
 
-    Ok(())
+  Ok(())
 }
 
 /// Tests for finding applicable rules
 #[test]
 fn test_find_applicable_rules() -> Result<()> {
-    let test_dir = create_test_directory()?;
-    let config = create_test_config()?;
+  let test_dir = create_test_directory()?;
+  let config = create_test_config()?;
 
-    let results = run_lint(&test_dir.path, &config, false)?;
-    let (successes, failures) = count_results(&results);
+  let results = run_lint(&test_dir.path, &config, false)?;
+  let (successes, failures) = count_results(&results);
 
-    // All valid files should pass their respective rules
-    assert_eq!(failures, 0, "No files should fail with valid structure");
-    assert!(successes > 0, "Should have successful validations");
+  // All valid files should pass their respective rules
+  assert_eq!(failures, 0, "No files should fail with valid structure");
+  assert!(successes > 0, "Should have successful validations");
 
-    // Helper function to check if a file passed validation
-    let file_passed = |filename: &str| {
-        results.iter().any(|r| {
-            if let LintResult::Success(path) = r {
-                path.to_string_lossy().contains(filename)
-            } else {
-                false
-            }
-        })
-    };
+  // Helper function to check if a file passed validation
+  let file_passed = |filename: &str| {
+    results.iter().any(|r| {
+      if let LintResult::Success(path) = r {
+        path.to_string_lossy().contains(filename)
+      } else {
+        false
+      }
+    })
+  };
 
-    // Verify specific files pass their rules
-    assert!(
-        file_passed("Button.js"),
-        "Button.js should pass component rules"
-    );
-    assert!(
-        file_passed("format-date.js"),
-        "format-date.js should pass utils rules"
-    );
-    assert!(
-        file_passed("userService.js"),
-        "userService.js should pass API rules"
-    );
-    assert!(
-        file_passed("app.test.js"),
-        "app.test.js should pass test rules"
-    );
+  // Verify specific files pass their rules
+  assert!(file_passed("Button.js"), "Button.js should pass component rules");
+  assert!(file_passed("format-date.js"), "format-date.js should pass utils rules");
+  assert!(file_passed("userService.js"), "userService.js should pass API rules");
+  assert!(file_passed("app.test.js"), "app.test.js should pass test rules");
 
-    Ok(())
+  Ok(())
 }
 
 /// Tests for handling directory validation
 #[test]
 fn test_directory_validation() -> Result<()> {
-    let test_dir = create_test_directory()?;
-    let config = create_test_config()?;
+  let test_dir = create_test_directory()?;
+  let config = create_test_config()?;
 
-    // Create directories with invalid names
-    std::fs::create_dir(test_dir.path.join("INVALID-dir-case"))?;
-    std::fs::create_dir(test_dir.path.join("src").join("bad_Dir_Name"))?;
+  // Create directories with invalid names
+  std::fs::create_dir(test_dir.path.join("INVALID-dir-case"))?;
+  std::fs::create_dir(test_dir.path.join("src").join("bad_Dir_Name"))?;
 
-    let results = run_lint(&test_dir.path, &config, false)?;
-    let (_, failures) = count_results(&results);
+  let results = run_lint(&test_dir.path, &config, false)?;
+  let (_, failures) = count_results(&results);
 
-    // Should have failures for invalid directory names
-    assert!(
-        failures >= 2,
-        "Should have failures for invalid directory names"
-    );
+  // Should have failures for invalid directory names
+  assert!(failures >= 2, "Should have failures for invalid directory names");
 
-    // Verify specific directory failures
-    assert_eq!(
-        count_file_failures(&results, "INVALID-dir-case"),
-        1,
-        "INVALID-dir-case should fail"
-    );
-    assert_eq!(
-        count_file_failures(&results, "bad_Dir_Name"),
-        1,
-        "bad_Dir_Name should fail"
-    );
+  // Verify specific directory failures
+  assert_eq!(count_file_failures(&results, "INVALID-dir-case"), 1, "INVALID-dir-case should fail");
+  assert_eq!(count_file_failures(&results, "bad_Dir_Name"), 1, "bad_Dir_Name should fail");
 
-    Ok(())
+  Ok(())
 }
 
 /// Tests for handling errors during linting
 #[test]
 fn test_lint_error_handling() -> Result<()> {
-    let test_dir = create_test_directory()?;
-    let mut config = create_test_config()?;
+  let test_dir = create_test_directory()?;
+  let mut config = create_test_config()?;
 
-    // Create a rule with an invalid expression
-    config
-        .raw
-        .lintp
-        .config
-        .global_rules
-        .insert(".test".to_string(), "invalid expression syntax".to_string());
+  // Create a rule with an invalid expression
+  config.raw.lintp.config.global_rules.insert(
+    ".test".to_string(),
+    "invalid expression syntax".to_string()
+  );
 
-    // Create a file that would match this rule
-    std::fs::write(
-        test_dir.path.join("test.test"),
-        "// Test file with invalid rule",
-    )?;
+  // Create a file that would match this rule
+  std::fs::write(test_dir.path.join("test.test"), "// Test file with invalid rule")?;
 
-    // This should return an error due to invalid expression
-    let result = run_lint(&test_dir.path, &config, false);
-    assert!(
-        result.is_err(),
-        "Should fail with invalid expression syntax"
-    );
+  // This should return an error due to invalid expression
+  let result = run_lint(&test_dir.path, &config, false);
+  assert!(result.is_err(), "Should fail with invalid expression syntax");
 
-    Ok(())
+  Ok(())
 }
 
 /// Tests for linting with verbose output
 #[test]
 fn test_lint_verbose_output() -> Result<()> {
-    let test_dir = create_test_directory()?;
-    let config = create_test_config()?;
+  let test_dir = create_test_directory()?;
+  let config = create_test_config()?;
 
-    // Run with verbose flag - this doesn't really test the output
-    // but makes sure the function runs without error
-    let results = run_lint(&test_dir.path, &config, true)?;
+  // Run with verbose flag - this doesn't really test the output
+  // but makes sure the function runs without error
+  let results = run_lint(&test_dir.path, &config, true)?;
 
-    assert!(!results.is_empty(), "Expected results from linting");
+  assert!(!results.is_empty(), "Expected results from linting");
 
-    Ok(())
+  Ok(())
 }

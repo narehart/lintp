@@ -135,6 +135,7 @@ custom-matchers:
 ## Basic Concepts
 
 The lintp DSL allows you to create powerful validation rules using:
+
 - **Variables** - Access file information (`$NAME`, `$EXT`, `$PATH`, etc.)
 - **Operators** - Combine conditions (`&&`, `||`, `!`, `==`, `!=`, etc.)
 - **Functions** - Perform operations (`matches()`, `contains()`, `startsWith()`, etc.)
@@ -1054,7 +1055,7 @@ config:
 ## Additional Resources
 
 - **[DSL Reference](docs/DSL_REFERENCE.md)** - Complete language reference with all operators, functions, and variables
-- **[Common Patterns](docs/COMMON_PATTERNS.md)** - Reusable patterns for naming conventions and validation rules  
+- **[Common Patterns](docs/COMMON_PATTERNS.md)** - Reusable patterns for naming conventions and validation rules
 - **[Examples](docs/EXAMPLES.md)** - Real-world configuration examples for different project types
 
 ## Contributing

@@ -8,16 +8,16 @@ This document defines reusable patterns that are used throughout the lintp docum
 
 ```yaml
 # kebab-case: lowercase with hyphens
-kebab-case: 'matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)'
+kebab-case: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)"
 
 # PascalCase: uppercase first letter, camelCase thereafter
-PascalCase: 'matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)'
+PascalCase: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
 
-# camelCase: lowercase first letter, PascalCase thereafter  
-camelCase: 'matches($BASENAME, /^[a-z][a-zA-Z0-9]*$/)'
+# camelCase: lowercase first letter, PascalCase thereafter
+camelCase: "matches($BASENAME, /^[a-z][a-zA-Z0-9]*$/)"
 
 # snake_case: lowercase with underscores
-snake_case: 'matches($BASENAME, /^[a-z0-9]+(?:_[a-z0-9]+)*$/)'
+snake_case: "matches($BASENAME, /^[a-z0-9]+(?:_[a-z0-9]+)*$/)"
 ```
 
 ### File Type Patterns
@@ -96,20 +96,20 @@ has-src: 'exists("src/")'
 
 ```yaml
 # No sensitive information in filenames
-no-secrets: '!contains($NAME, "secret") && 
-             !contains($NAME, "password") && 
-             !contains($NAME, "key") && 
+no-secrets: '!contains($NAME, "secret") &&
+             !contains($NAME, "password") &&
+             !contains($NAME, "key") &&
              !contains($NAME, "token")'
 
 # No temporary files
-no-temp-files: '!endsWith($NAME, ".tmp") && 
-                !endsWith($NAME, ".bak") && 
+no-temp-files: '!endsWith($NAME, ".tmp") &&
+                !endsWith($NAME, ".bak") &&
                 !startsWith($BASENAME, "~")'
 
 # Approved file extensions only
 safe-extensions: 'in($EXT, [
   "js", "ts", "jsx", "tsx", "vue",
-  "json", "yml", "yaml", "toml", 
+  "json", "yml", "yaml", "toml",
   "md", "txt", "html", "css", "scss",
   "png", "jpg", "jpeg", "gif", "svg"
 ])'
@@ -123,13 +123,13 @@ To use these patterns in your `lintp.yml`, simply reference them in your `custom
 lintp:
   custom-matchers:
     # Import patterns you need
-    kebab-case: 'matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)'
-    PascalCase: 'matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)'
+    kebab-case: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)"
+    PascalCase: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
     js-file: '$EXT == "js"'
     react-component: 'in($EXT, ["tsx", "jsx"]) && PascalCase'
-    
+
     # Define your specific rules
-    my-custom-rule: 'kebab-case && js-file'
+    my-custom-rule: "kebab-case && js-file"
 ```
 
 ## Cross-References

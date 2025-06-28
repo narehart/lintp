@@ -1,27 +1,27 @@
 name: Auto Tag on Version Change
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'Cargo.toml'
+    push:
+        branches:
+            - main
+        paths:
+            - "Cargo.toml"
 
 jobs:
-  auto-tag:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            Cargo.toml
-          sparse-checkout-cone-mode: false
-      
-      - name: Auto Tag
-        uses: ButlerLogic/action-autotag@stable
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          strategy: regex
-          root: Cargo.toml
-          regex_pattern: 'version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"'
-          tag_prefix: "v"
+    auto-tag:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  sparse-checkout: |
+                      Cargo.toml
+                  sparse-checkout-cone-mode: false
+
+            - name: Auto Tag
+              uses: ButlerLogic/action-autotag@stable
+              with:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  strategy: regex
+                  root: Cargo.toml
+                  regex_pattern: 'version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"'
+                  tag_prefix: "v"
