@@ -80,3 +80,4 @@ Cargo.toml
 # Generated files
 *.min.js
 *.min.css
+CHANGELOG.md

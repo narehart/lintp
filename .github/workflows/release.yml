@@ -81,6 +81,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate changelog and tag
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          # Check if CHANGELOG.md exists
+          if [ ! -f "CHANGELOG.md" ]; then
+            echo "::error::CHANGELOG.md not found!"
+            exit 1
+          fi
+
+          # Check if version is in CHANGELOG
+          if ! grep -q "## \[$VERSION\]" CHANGELOG.md; then
+            echo "::error::Version $VERSION not found in CHANGELOG.md!"
+            echo "::error::Please run 'npm run release' to update the changelog before creating a release."
+            exit 1
+          fi
+
+          # Extract release notes for this version
+          awk "/## \[$VERSION\]/{flag=1; next} /## \[/{flag=0} flag" CHANGELOG.md > release_notes.md
 
       - name: Generate GitHub App Token
         id: app-token
@@ -100,5 +123,5 @@ jobs:
           files: artifacts/**/*
           draft: false
           prerelease: false
-          generate_release_notes: true
+          body_path: release_notes.md
           token: ${{ steps.app-token.outputs.token }}
