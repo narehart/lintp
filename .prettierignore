@@ -1,0 +1,82 @@
+# Dependencies
+node_modules/
+target/
+
+# Build outputs
+dist/
+build/
+*.log
+
+# Lock files
+package-lock.json
+Cargo.lock
+
+# Coverage
+coverage/
+*.lcov
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+
+# Binary files
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Archives
+*.tar
+*.tar.gz
+*.zip
+*.7z
+
+# Images
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.ico
+*.svg
+*.webp
+
+# Fonts
+*.woff
+*.woff2
+*.eot
+*.ttf
+*.otf
+
+# Documents
+*.pdf
+*.doc
+*.docx
+
+# Data files
+*.json
+*.csv
+*.tsv
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Rust specific
+Cargo.toml
+*.rs
+
+# Generated files
+*.min.js
+*.min.css

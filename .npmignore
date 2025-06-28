@@ -1,0 +1,25 @@
+# Source code and build files
+src/
+target/
+tests/
+Cargo.*
+rustfmt.toml
+.gitignore
+.git/
+
+# Development files
+node_modules/
+*.log
+.DS_Store
+
+# CI/CD
+.github/
+
+# Documentation source
+docs/*.md
+
+# Keep only the built binaries and necessary files
+!bin/
+!scripts/
+!index.js
+!README.md
