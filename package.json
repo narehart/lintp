@@ -1,15 +1,15 @@
 {
   "name": "lintp",
   "version": "0.1.0",
-  "description": "A powerful file system linter that validates directory structures and file naming conventions using a custom DSL",
+  "description": "File system linter with a custom DSL for directory structure validation",
   "main": "index.js",
   "bin": {
     "lintp": "./bin/lintp"
   },
   "scripts": {
-    "postinstall": "node scripts/install.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "format": "prettier"
+    "sync-toml": "node scripts/sync-toml-to-package.js",
+    "prepublishOnly": "npm run sync-toml"
   },
   "repository": {
     "type": "git",
@@ -52,6 +52,7 @@
     "arm64"
   ],
   "devDependencies": {
-    "prettier-plugin-rust": "^0.1.9"
+    "prettier-plugin-rust": "^0.1.9",
+    "smol-toml": "^1.4.0"
   }
 }
