@@ -6,66 +6,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            binary-name: lintp-linux-x64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            binary-name: lintp-linux-arm64
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            binary-name: lintp-macos-x64
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            binary-name: lintp-macos-arm64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            binary-name: lintp.exe
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-      
-      - name: Install cross-compilation tools
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-      
-      - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
-      
-      - name: Prepare binary
-        run: |
-          mkdir -p dist/bin
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            cp target/${{ matrix.target }}/release/lintp.exe dist/bin/${{ matrix.binary-name }}
-          else
-            cp target/${{ matrix.target }}/release/lintp dist/bin/${{ matrix.binary-name }}
-            chmod +x dist/bin/${{ matrix.binary-name }}
-          fi
-        shell: bash
-      
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: binary-${{ matrix.target }}
-          path: dist/bin/${{ matrix.binary-name }}
-  
   publish:
-    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            package.json
+            package-lock.json
+            Cargo.toml
+            scripts/
+            index.js
+            bin/
+            README.md
+            .npmignore
+          sparse-checkout-cone-mode: false
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -79,14 +34,17 @@ jobs:
       - name: Sync TOML to package.json
         run: npm run sync-toml
       
-      - name: Download all binaries
-        uses: actions/download-artifact@v4
+      - name: Download release assets
+        uses: dsaltares/fetch-gh-release-asset@master
         with:
-          pattern: binary-*
-          merge-multiple: true
-          path: bin/
+          repo: ${{ github.repository }}
+          version: ${{ github.event.release.tag_name }}
+          regex: true
+          file: "lintp-.*"
+          target: "bin/"
+          token: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: List binaries
+      - name: List and prepare binaries
         run: |
           ls -la bin/
           chmod +x bin/* || true
