@@ -4,68 +4,18 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'Cargo.toml'
 
 jobs:
   auto-tag:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Auto Tag
+        uses: ButlerLogic/action-autotag@stable
         with:
-          fetch-depth: 2
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-      
-      - name: Install dependencies
-        run: npm install smol-toml
-      
-      - name: Check version change and tag
-        run: |
-          # Get current version from Cargo.toml
-          CURRENT_VERSION=$(node -e "
-            const fs = require('fs');
-            const TOML = require('smol-toml');
-            const toml = TOML.parse(fs.readFileSync('Cargo.toml', 'utf8'));
-            console.log(toml.package.version);
-          ")
-          
-          # Get previous version from Cargo.toml
-          git checkout HEAD~1 Cargo.toml 2>/dev/null || true
-          PREVIOUS_VERSION=$(node -e "
-            const fs = require('fs');
-            const TOML = require('smol-toml');
-            try {
-              const toml = TOML.parse(fs.readFileSync('Cargo.toml', 'utf8'));
-              console.log(toml.package.version);
-            } catch (e) {
-              console.log('0.0.0');
-            }
-          " 2>/dev/null || echo "0.0.0")
-          
-          # Restore current Cargo.toml
-          git checkout HEAD Cargo.toml
-          
-          echo "Previous version: $PREVIOUS_VERSION"
-          echo "Current version: $CURRENT_VERSION"
-          
-          # Check if version changed
-          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
-            echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
-            
-            # Check if tag already exists
-            if git rev-parse "v$CURRENT_VERSION" >/dev/null 2>&1; then
-              echo "Tag v$CURRENT_VERSION already exists"
-            else
-              echo "Creating tag v$CURRENT_VERSION"
-              git config user.name github-actions
-              git config user.email github-actions@github.com
-              git tag -a "v$CURRENT_VERSION" -m "Release v$CURRENT_VERSION"
-              git push origin "v$CURRENT_VERSION"
-            fi
-          else
-            echo "Version unchanged"
-          fi
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          strategy: regex
+          root: Cargo.toml
+          regex_pattern: 'version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"'
+          tag_prefix: "v"
