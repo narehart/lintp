@@ -16,6 +16,7 @@ export default defineConfig({
         "**/*.config.ts",
         "**/vitest.config.ts",
         "**/commitlint.config.ts",
+        "**/check-coverage.ts",
       ],
       thresholds: {
         lines: 70,
