@@ -65,7 +65,7 @@ function syncTomlToPackageJson(): {
 
   // Write back if updated
   if (updated) {
-    fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + "\n");
+    fs.writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)  }\n`);
     console.log("✅ package.json updated:");
     changes.forEach((change) => console.log(`  ${change}`));
   } else {

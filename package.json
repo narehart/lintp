@@ -15,6 +15,8 @@
     "prepublishOnly": "npm run build && npm run sync-toml",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "prepare": "husky",
     "commit": "cz"
   },
@@ -66,13 +68,16 @@
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
     "@commitlint/types": "^19.8.1",
+    "@eslint/js": "^9.30.0",
     "@types/node": "^24.0.7",
     "commitizen": "^4.3.1",
     "cz-conventional-changelog": "^3.3.0",
+    "eslint": "^9.30.0",
     "husky": "^9.1.7",
     "prettier-plugin-rust": "^0.1.9",
     "smol-toml": "^1.4.0",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.35.0"
   }
 }
