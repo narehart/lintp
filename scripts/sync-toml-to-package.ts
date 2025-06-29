@@ -43,14 +43,16 @@ function syncTomlToPackageJson(): {
   const changes = [];
 
   if (toml.package.name && packageJson.name !== toml.package.name) {
+    const oldValue = packageJson.name;
     packageJson.name = toml.package.name;
-    changes.push(`name: ${packageJson.name}`);
+    changes.push(`name: ${oldValue} → ${packageJson.name}`);
     updated = true;
   }
 
   if (toml.package.version && packageJson.version !== toml.package.version) {
+    const oldValue = packageJson.version;
     packageJson.version = toml.package.version;
-    changes.push(`version: ${packageJson.version}`);
+    changes.push(`version: ${oldValue} → ${packageJson.version}`);
     updated = true;
   }
 
@@ -58,14 +60,15 @@ function syncTomlToPackageJson(): {
     toml.package.description &&
     packageJson.description !== toml.package.description
   ) {
+    const oldValue = packageJson.description;
     packageJson.description = toml.package.description;
-    changes.push(`description: ${packageJson.description}`);
+    changes.push(`description: ${oldValue} → ${packageJson.description}`);
     updated = true;
   }
 
   // Write back if updated
   if (updated) {
-    fs.writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)  }\n`);
+    fs.writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
     console.log("✅ package.json updated:");
     changes.forEach((change) => console.log(`  ${change}`));
   } else {
