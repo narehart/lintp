@@ -16,7 +16,7 @@ interface PackageJson {
   name: string;
   version: string;
   description: string;
-  [key: string]: any;
+  [key: string]: string | number | boolean | object | null | undefined;
 }
 
 function syncTomlToPackageJson(): {

@@ -40,7 +40,7 @@ function main(): void {
     env: process.env,
   });
 
-  child.on("error", (err: any) => {
+  child.on("error", (err: NodeJS.ErrnoException) => {
     if (err.code === "ENOENT") {
       console.error(
         `Error: Binary not found for your platform (${os.platform()} ${os.arch()})`
