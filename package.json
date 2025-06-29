@@ -1,15 +1,17 @@
 {
   "name": "lintp",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "File system linter with a custom DSL for directory structure validation",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
     "lintp": "./bin/lintp"
   },
   "scripts": {
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "sync-toml": "node scripts/sync-toml-to-package.js",
-    "prepublishOnly": "npm run sync-toml",
+    "sync-toml": "tsx scripts/sync-toml-to-package.ts",
+    "prepublishOnly": "npm run build && npm run sync-toml",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",
@@ -44,8 +46,7 @@
   "homepage": "https://narehart.github.io/lintp/",
   "files": [
     "bin/",
-    "scripts/",
-    "index.js",
+    "dist/",
     "README.md"
   ],
   "engines": {
@@ -63,10 +64,13 @@
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
+    "@types/node": "^24.0.7",
     "commitizen": "^4.3.1",
     "cz-conventional-changelog": "^3.3.0",
     "husky": "^9.1.7",
     "prettier-plugin-rust": "^0.1.9",
-    "smol-toml": "^1.4.0"
+    "smol-toml": "^1.4.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
   }
 }

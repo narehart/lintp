@@ -24,14 +24,14 @@ jobs:
 
       - name: Install asdf
         uses: asdf-vm/actions/setup@v3
-      
+
       - name: Install asdf plugins
         run: |
           asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
-      
+
       - name: Install tools
         run: asdf install nodejs
-      
+
       - name: Set NPM registry
         run: npm config set registry https://registry.npmjs.org/
 

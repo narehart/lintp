@@ -1,10 +1,28 @@
 #!/usr/bin/env node
 
-const fs = require("fs");
-const path = require("path");
-const TOML = require("smol-toml");
+import fs from "fs";
+import path from "path";
+import * as TOML from "smol-toml";
 
-function syncTomlToPackageJson() {
+interface TomlPackage {
+  package?: {
+    name?: string;
+    version?: string;
+    description?: string;
+  };
+}
+
+interface PackageJson {
+  name: string;
+  version: string;
+  description: string;
+  [key: string]: any;
+}
+
+function syncTomlToPackageJson(): {
+  updated: boolean;
+  packageJson: PackageJson;
+} {
   const tomlPath = path.join(__dirname, "..", "Cargo.toml");
   const packagePath = path.join(__dirname, "..", "package.json");
 
@@ -13,7 +31,7 @@ function syncTomlToPackageJson() {
   const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
 
   // Parse TOML
-  const toml = TOML.parse(tomlContent);
+  const toml = TOML.parse(tomlContent) as TomlPackage;
 
   if (!toml.package) {
     console.error("No [package] section found in Cargo.toml");
@@ -62,4 +80,4 @@ if (require.main === module) {
   syncTomlToPackageJson();
 }
 
-module.exports = { syncTomlToPackageJson };
+export { syncTomlToPackageJson };

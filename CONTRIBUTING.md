@@ -35,9 +35,11 @@ Each commit message consists of a **header**, an optional **body**, and an optio
 You have two options for creating commits:
 
 1. **Interactive mode** (recommended for beginners):
+
    ```bash
    npm run commit
    ```
+
    This will guide you through creating a properly formatted commit message.
 
 2. **Manual mode**:
