@@ -22,11 +22,18 @@ jobs:
             .npmignore
           sparse-checkout-cone-mode: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-          registry-url: "https://registry.npmjs.org"
+      - name: Install asdf
+        uses: asdf-vm/actions/setup@v3
+      
+      - name: Install asdf plugins
+        run: |
+          asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
+      
+      - name: Install tools
+        run: asdf install nodejs
+      
+      - name: Set NPM registry
+        run: npm config set registry https://registry.npmjs.org/
 
       - name: Install dependencies
         run: npm ci

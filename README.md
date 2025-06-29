@@ -20,11 +20,22 @@ A powerful file system linter that validates directory structures and file namin
 
 ## Installation
 
+### Prerequisites
+
+This project uses [asdf](https://asdf-vm.com/) to manage tool versions. Make sure you have asdf installed, then run:
+
+```bash
+asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
+asdf plugin add rust https://github.com/code-lever/asdf-rust.git
+asdf install
+```
+
 ### From Source
 
 ```bash
 git clone <repository-url>
 cd lintp
+asdf install  # Install required Node.js and Rust versions
 cargo build --release
 ./target/release/lintp --help
 ```
