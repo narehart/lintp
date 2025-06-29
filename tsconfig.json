@@ -3,8 +3,6 @@
     "target": "ES2020",
     "module": "commonjs",
     "lib": ["ES2020"],
-    "outDir": "./dist",
-    "rootDir": "./",
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -22,7 +20,8 @@
     "declarationMap": true,
     "sourceMap": true,
     "allowJs": true,
-    "checkJs": false
+    "checkJs": false,
+    "noEmit": true
   },
   "include": [
     "index.ts",

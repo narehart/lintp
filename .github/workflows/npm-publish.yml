@@ -16,7 +16,9 @@ jobs:
             package-lock.json
             Cargo.toml
             scripts/
-            index.js
+            index.ts
+            tsconfig.json
+            tsconfig.build.json
             bin/
             README.md
             .npmignore
@@ -40,6 +42,9 @@ jobs:
 
       - name: Sync TOML to package.json
         run: npm run sync-toml
+
+      - name: Build TypeScript
+        run: npm run build
 
       - name: Get release tag
         id: get_tag
