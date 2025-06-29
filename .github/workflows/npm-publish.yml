@@ -16,7 +16,9 @@ jobs:
             package-lock.json
             Cargo.toml
             scripts/
-            index.js
+            index.ts
+            tsconfig.json
+            tsconfig.build.json
             bin/
             README.md
             .npmignore
@@ -24,14 +26,14 @@ jobs:
 
       - name: Install asdf
         uses: asdf-vm/actions/setup@v3
-      
+
       - name: Install asdf plugins
         run: |
           asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
-      
+
       - name: Install tools
         run: asdf install nodejs
-      
+
       - name: Set NPM registry
         run: npm config set registry https://registry.npmjs.org/
 
@@ -40,6 +42,9 @@ jobs:
 
       - name: Sync TOML to package.json
         run: npm run sync-toml
+
+      - name: Build TypeScript
+        run: npm run build
 
       - name: Get release tag
         id: get_tag

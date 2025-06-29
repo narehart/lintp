@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-const { spawn } = require("child_process");
-const path = require("path");
-const os = require("os");
+import { spawn } from "child_process";
+import path from "path";
+import os from "os";
 
-function getBinaryName() {
+function getBinaryName(): string {
   const platform = os.platform();
   const arch = os.arch();
 
@@ -31,7 +31,7 @@ function getBinaryName() {
   return binaryName;
 }
 
-function main() {
+function main(): void {
   const binaryName = getBinaryName();
   const binaryPath = path.join(__dirname, "bin", binaryName);
 
@@ -40,7 +40,7 @@ function main() {
     env: process.env,
   });
 
-  child.on("error", (err) => {
+  child.on("error", (err: NodeJS.ErrnoException) => {
     if (err.code === "ENOENT") {
       console.error(
         `Error: Binary not found for your platform (${os.platform()} ${os.arch()})`
@@ -54,7 +54,7 @@ function main() {
     throw err;
   });
 
-  child.on("exit", (code, signal) => {
+  child.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
     if (signal) {
       process.kill(process.pid, signal);
     } else {
@@ -67,4 +67,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { getBinaryName };
+export { getBinaryName };
