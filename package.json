@@ -11,7 +11,14 @@
     "sync-toml": "node scripts/sync-toml-to-package.js",
     "prepublishOnly": "npm run sync-toml",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "husky",
+    "commit": "cz"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
   },
   "repository": {
     "type": "git",
@@ -54,6 +61,11 @@
     "arm64"
   ],
   "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
+    "husky": "^9.1.7",
     "prettier-plugin-rust": "^0.1.9",
     "smol-toml": "^1.4.0"
   }
