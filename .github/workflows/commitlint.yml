@@ -17,7 +17,7 @@ jobs:
           asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
       
       - name: Install tools
-        run: asdf install
+        run: asdf install nodejs
       
       - name: Install dependencies
         run: npm ci

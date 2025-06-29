@@ -48,7 +48,7 @@ jobs:
           asdf plugin add rust https://github.com/code-lever/asdf-rust.git
       
       - name: Install tools
-        run: asdf install
+        run: asdf install rust
       
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
