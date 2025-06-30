@@ -74,13 +74,13 @@ pub const DIST_DIR_PATTERN: &str = r"(dist|build)";
 
 /// Common ignore patterns
 pub const COMMON_IGNORE_PATTERNS: &[&str] = &[
-  "node_modules",
-  ".git",
-  "dist",
-  "build",
-  "coverage",
-  ".nyc_output",
-  "target",
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    "coverage",
+    ".nyc_output",
+    "target",
 ];
 
 // =============================================================================
@@ -145,7 +145,7 @@ pub const UTILITY_FILE_EXPR: &str = "kebab-case && (js-file || ts-file)";
 
 /// Creates a standard test config YAML content with the standardized patterns
 pub fn create_standard_test_config() -> &'static str {
-  r#"
+    r#"
 lintp:
   custom-matchers:
     kebab-case: matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)
@@ -196,7 +196,7 @@ lintp:
 
 /// Creates a minimal test config for basic testing
 pub fn create_minimal_test_config() -> &'static str {
-  r#"
+    r#"
 lintp:
   custom-matchers:
     kebab-case: matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)
@@ -214,136 +214,140 @@ lintp:
 
 #[cfg(test)]
 mod tests {
-  use super::*;
-  use regex::Regex;
+    use super::*;
+    use regex::Regex;
 
-  /// Test that all regex patterns compile successfully
-  #[test]
-  fn test_all_patterns_compile() {
-    let patterns = [
-      KEBAB_CASE_PATTERN,
-      PASCAL_CASE_PATTERN,
-      CAMEL_CASE_PATTERN,
-      SNAKE_CASE_PATTERN,
-      UPPER_SNAKE_CASE_PATTERN,
-      JS_FILE_PATTERN,
-      TS_FILE_PATTERN,
-      JSX_FILE_PATTERN,
-      TSX_FILE_PATTERN,
-      SCRIPT_FILE_PATTERN,
-      JEST_TEST_PATTERN,
-      SPEC_TEST_PATTERN,
-      ANY_TEST_PATTERN,
-    ];
+    /// Test that all regex patterns compile successfully
+    #[test]
+    fn test_all_patterns_compile() {
+        let patterns = [
+            KEBAB_CASE_PATTERN,
+            PASCAL_CASE_PATTERN,
+            CAMEL_CASE_PATTERN,
+            SNAKE_CASE_PATTERN,
+            UPPER_SNAKE_CASE_PATTERN,
+            JS_FILE_PATTERN,
+            TS_FILE_PATTERN,
+            JSX_FILE_PATTERN,
+            TSX_FILE_PATTERN,
+            SCRIPT_FILE_PATTERN,
+            JEST_TEST_PATTERN,
+            SPEC_TEST_PATTERN,
+            ANY_TEST_PATTERN,
+        ];
 
-    for pattern in patterns {
-      assert!(Regex::new(pattern).is_ok(), "Pattern should compile successfully: {}", pattern);
+        for pattern in patterns {
+            assert!(
+                Regex::new(pattern).is_ok(),
+                "Pattern should compile successfully: {}",
+                pattern
+            );
+        }
     }
-  }
 
-  /// Test kebab-case pattern validation
-  #[test]
-  fn test_kebab_case_pattern() {
-    let pattern = Regex::new(KEBAB_CASE_PATTERN).unwrap();
+    /// Test kebab-case pattern validation
+    #[test]
+    fn test_kebab_case_pattern() {
+        let pattern = Regex::new(KEBAB_CASE_PATTERN).unwrap();
 
-    // Valid kebab-case
-    assert!(pattern.is_match("hello-world"));
-    assert!(pattern.is_match("my-component"));
-    assert!(pattern.is_match("test-123"));
-    assert!(pattern.is_match("a"));
-    assert!(pattern.is_match("component"));
+        // Valid kebab-case
+        assert!(pattern.is_match("hello-world"));
+        assert!(pattern.is_match("my-component"));
+        assert!(pattern.is_match("test-123"));
+        assert!(pattern.is_match("a"));
+        assert!(pattern.is_match("component"));
 
-    // Invalid kebab-case
-    assert!(!pattern.is_match("HelloWorld"));
-    assert!(!pattern.is_match("hello_world"));
-    assert!(!pattern.is_match("-hello"));
-    assert!(!pattern.is_match("hello-"));
-    assert!(!pattern.is_match("hello--world"));
-    assert!(!pattern.is_match(""));
-  }
+        // Invalid kebab-case
+        assert!(!pattern.is_match("HelloWorld"));
+        assert!(!pattern.is_match("hello_world"));
+        assert!(!pattern.is_match("-hello"));
+        assert!(!pattern.is_match("hello-"));
+        assert!(!pattern.is_match("hello--world"));
+        assert!(!pattern.is_match(""));
+    }
 
-  /// Test PascalCase pattern validation
-  #[test]
-  fn test_pascal_case_pattern() {
-    let pattern = Regex::new(PASCAL_CASE_PATTERN).unwrap();
+    /// Test PascalCase pattern validation
+    #[test]
+    fn test_pascal_case_pattern() {
+        let pattern = Regex::new(PASCAL_CASE_PATTERN).unwrap();
 
-    // Valid PascalCase
-    assert!(pattern.is_match("HelloWorld"));
-    assert!(pattern.is_match("MyComponent"));
-    assert!(pattern.is_match("A"));
-    assert!(pattern.is_match("Component"));
-    assert!(pattern.is_match("Test123"));
+        // Valid PascalCase
+        assert!(pattern.is_match("HelloWorld"));
+        assert!(pattern.is_match("MyComponent"));
+        assert!(pattern.is_match("A"));
+        assert!(pattern.is_match("Component"));
+        assert!(pattern.is_match("Test123"));
 
-    // Invalid PascalCase
-    assert!(!pattern.is_match("helloWorld"));
-    assert!(!pattern.is_match("hello-world"));
-    assert!(!pattern.is_match("hello_world"));
-    assert!(!pattern.is_match("123Hello"));
-    assert!(!pattern.is_match(""));
-  }
+        // Invalid PascalCase
+        assert!(!pattern.is_match("helloWorld"));
+        assert!(!pattern.is_match("hello-world"));
+        assert!(!pattern.is_match("hello_world"));
+        assert!(!pattern.is_match("123Hello"));
+        assert!(!pattern.is_match(""));
+    }
 
-  /// Test camelCase pattern validation
-  #[test]
-  fn test_camel_case_pattern() {
-    let pattern = Regex::new(CAMEL_CASE_PATTERN).unwrap();
+    /// Test camelCase pattern validation
+    #[test]
+    fn test_camel_case_pattern() {
+        let pattern = Regex::new(CAMEL_CASE_PATTERN).unwrap();
 
-    // Valid camelCase
-    assert!(pattern.is_match("helloWorld"));
-    assert!(pattern.is_match("myComponent"));
-    assert!(pattern.is_match("a"));
-    assert!(pattern.is_match("component"));
-    assert!(pattern.is_match("test123"));
+        // Valid camelCase
+        assert!(pattern.is_match("helloWorld"));
+        assert!(pattern.is_match("myComponent"));
+        assert!(pattern.is_match("a"));
+        assert!(pattern.is_match("component"));
+        assert!(pattern.is_match("test123"));
 
-    // Invalid camelCase
-    assert!(!pattern.is_match("HelloWorld"));
-    assert!(!pattern.is_match("hello-world"));
-    assert!(!pattern.is_match("hello_world"));
-    assert!(!pattern.is_match("123hello"));
-    assert!(!pattern.is_match(""));
-  }
+        // Invalid camelCase
+        assert!(!pattern.is_match("HelloWorld"));
+        assert!(!pattern.is_match("hello-world"));
+        assert!(!pattern.is_match("hello_world"));
+        assert!(!pattern.is_match("123hello"));
+        assert!(!pattern.is_match(""));
+    }
 
-  /// Test snake_case pattern validation
-  #[test]
-  fn test_snake_case_pattern() {
-    let pattern = Regex::new(SNAKE_CASE_PATTERN).unwrap();
+    /// Test snake_case pattern validation
+    #[test]
+    fn test_snake_case_pattern() {
+        let pattern = Regex::new(SNAKE_CASE_PATTERN).unwrap();
 
-    // Valid snake_case
-    assert!(pattern.is_match("hello_world"));
-    assert!(pattern.is_match("my_component"));
-    assert!(pattern.is_match("test_123"));
-    assert!(pattern.is_match("a"));
-    assert!(pattern.is_match("component"));
+        // Valid snake_case
+        assert!(pattern.is_match("hello_world"));
+        assert!(pattern.is_match("my_component"));
+        assert!(pattern.is_match("test_123"));
+        assert!(pattern.is_match("a"));
+        assert!(pattern.is_match("component"));
 
-    // Invalid snake_case
-    assert!(!pattern.is_match("HelloWorld"));
-    assert!(!pattern.is_match("hello-world"));
-    assert!(!pattern.is_match("_hello"));
-    assert!(!pattern.is_match("hello_"));
-    assert!(!pattern.is_match("hello__world"));
-    assert!(!pattern.is_match(""));
-  }
+        // Invalid snake_case
+        assert!(!pattern.is_match("HelloWorld"));
+        assert!(!pattern.is_match("hello-world"));
+        assert!(!pattern.is_match("_hello"));
+        assert!(!pattern.is_match("hello_"));
+        assert!(!pattern.is_match("hello__world"));
+        assert!(!pattern.is_match(""));
+    }
 
-  /// Test file extension patterns
-  #[test]
-  fn test_file_patterns() {
-    let js_pattern = Regex::new(JS_FILE_PATTERN).unwrap();
-    let ts_pattern = Regex::new(TS_FILE_PATTERN).unwrap();
-    let test_pattern = Regex::new(JEST_TEST_PATTERN).unwrap();
+    /// Test file extension patterns
+    #[test]
+    fn test_file_patterns() {
+        let js_pattern = Regex::new(JS_FILE_PATTERN).unwrap();
+        let ts_pattern = Regex::new(TS_FILE_PATTERN).unwrap();
+        let test_pattern = Regex::new(JEST_TEST_PATTERN).unwrap();
 
-    // JavaScript files
-    assert!(js_pattern.is_match("component.js"));
-    assert!(js_pattern.is_match("index.js"));
-    assert!(!js_pattern.is_match("component.ts"));
+        // JavaScript files
+        assert!(js_pattern.is_match("component.js"));
+        assert!(js_pattern.is_match("index.js"));
+        assert!(!js_pattern.is_match("component.ts"));
 
-    // TypeScript files
-    assert!(ts_pattern.is_match("component.ts"));
-    assert!(ts_pattern.is_match("index.ts"));
-    assert!(!ts_pattern.is_match("component.js"));
+        // TypeScript files
+        assert!(ts_pattern.is_match("component.ts"));
+        assert!(ts_pattern.is_match("index.ts"));
+        assert!(!ts_pattern.is_match("component.js"));
 
-    // Test files
-    assert!(test_pattern.is_match("component.test.js"));
-    assert!(test_pattern.is_match("utils.test.ts"));
-    assert!(!test_pattern.is_match("component.spec.js"));
-    assert!(!test_pattern.is_match("component.js"));
-  }
+        // Test files
+        assert!(test_pattern.is_match("component.test.js"));
+        assert!(test_pattern.is_match("utils.test.ts"));
+        assert!(!test_pattern.is_match("component.spec.js"));
+        assert!(!test_pattern.is_match("component.js"));
+    }
 }
