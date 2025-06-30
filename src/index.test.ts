@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { spawn } from "child_process";
+import { spawn, type ChildProcess } from "child_process";
 import { arch, platform } from "os";
 import path from "path";
 
@@ -71,7 +71,7 @@ describe("index.ts", () => {
     });
 
     it("should return base binary name for unsupported platform", async () => {
-      mockPlatform.mockReturnValue("freebsd" as any);
+      mockPlatform.mockReturnValue("freebsd" as NodeJS.Platform);
       mockArch.mockReturnValue("x64");
 
       const { getBinaryName } = await import("./index");
@@ -100,7 +100,7 @@ describe("index.ts", () => {
       const mockChild = {
         on: vi.fn(),
       };
-      mockSpawn.mockReturnValue(mockChild as any);
+      mockSpawn.mockReturnValue(mockChild as unknown as ChildProcess);
 
       const onError = vi.fn();
       const onExit = vi.fn();
@@ -212,7 +212,7 @@ describe("index.ts", () => {
       const mockChild = {
         on: vi.fn(),
       };
-      mockSpawn.mockReturnValue(mockChild as any);
+      mockSpawn.mockReturnValue(mockChild as unknown as ChildProcess);
 
       const { main } = await import("./index");
       main();
@@ -232,7 +232,7 @@ describe("index.ts", () => {
       const mockChild = {
         on: vi.fn(),
       };
-      mockSpawn.mockReturnValue(mockChild as any);
+      mockSpawn.mockReturnValue(mockChild as unknown as ChildProcess);
 
       const consoleError = vi
         .spyOn(console, "error")

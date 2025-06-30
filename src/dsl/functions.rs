@@ -67,7 +67,7 @@ fn in_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {
 }
 
 fn exists_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
-  if args.len() < 1 || args.len() > 3 {
+  if args.is_empty() || args.len() > 3 {
     return Err(anyhow::anyhow!("exists() requires 1-3 arguments"));
   }
 
@@ -147,12 +147,10 @@ fn siblings_function(args: &[Value], context: &EvaluationContext) -> Result<Valu
 
   let mut result = Vec::new();
 
-  for entry in entries {
-    if let Ok(path) = entry {
-      if let Some(name) = path.file_name() {
-        if let Some(name_str) = name.to_str() {
-          result.push(Value::String(name_str.to_string()));
-        }
+  for path in entries.flatten() {
+    if let Some(name) = path.file_name() {
+      if let Some(name_str) = name.to_str() {
+        result.push(Value::String(name_str.to_string()));
       }
     }
   }
@@ -185,12 +183,10 @@ fn children_function(args: &[Value], context: &EvaluationContext) -> Result<Valu
 
   let mut result = Vec::new();
 
-  for entry in entries {
-    if let Ok(path) = entry {
-      if let Some(name) = path.file_name() {
-        if let Some(name_str) = name.to_str() {
-          result.push(Value::String(name_str.to_string()));
-        }
+  for path in entries.flatten() {
+    if let Some(name) = path.file_name() {
+      if let Some(name_str) = name.to_str() {
+        result.push(Value::String(name_str.to_string()));
       }
     }
   }
@@ -226,12 +222,10 @@ fn find_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> 
 
   let mut result = Vec::new();
 
-  for entry in entries {
-    if let Ok(path) = entry {
-      if let Some(name) = path.file_name() {
-        if let Some(name_str) = name.to_str() {
-          result.push(Value::String(name_str.to_string()));
-        }
+  for path in entries.flatten() {
+    if let Some(name) = path.file_name() {
+      if let Some(name_str) = name.to_str() {
+        result.push(Value::String(name_str.to_string()));
       }
     }
   }
@@ -285,11 +279,8 @@ fn any_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
       item_context: Some(item.clone()),
     };
 
-    match crate::dsl::evaluator::evaluate(&expr, &new_context)? {
-      Value::Boolean(true) => {
-        return Ok(Value::Boolean(true));
-      }
-      _ => {}
+    if let Value::Boolean(true) = crate::dsl::evaluator::evaluate(&expr, &new_context)? {
+      return Ok(Value::Boolean(true));
     }
   }
 
@@ -325,11 +316,8 @@ fn all_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
       item_context: Some(item.clone()),
     };
 
-    match crate::dsl::evaluator::evaluate(&expr, &new_context)? {
-      Value::Boolean(false) => {
-        return Ok(Value::Boolean(false));
-      }
-      _ => {}
+    if let Value::Boolean(false) = crate::dsl::evaluator::evaluate(&expr, &new_context)? {
+      return Ok(Value::Boolean(false));
     }
   }
 
@@ -430,9 +418,8 @@ fn filter_function(args: &[Value], context: &EvaluationContext) -> Result<Value>
       item_context: Some(item.clone()),
     };
 
-    match crate::dsl::evaluator::evaluate(&expr, &new_context)? {
-      Value::Boolean(true) => result.push(item.clone()),
-      _ => {}
+    if let Value::Boolean(true) = crate::dsl::evaluator::evaluate(&expr, &new_context)? {
+      result.push(item.clone())
     }
   }
 
