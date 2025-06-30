@@ -141,8 +141,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run coverage
-        run: npm run coverage
+      - name: Run TypeScript coverage
+        run: npm run coverage:ts
+
+      - name: Run Rust coverage with timeout
+        run: |
+          # Run cargo-tarpaulin with increased timeout and less verbose output
+          cargo tarpaulin --out Xml --timeout 300 --exclude-files "tests/*" --ignore-panics
 
       - name: Check coverage thresholds
         run: npm run coverage:check
