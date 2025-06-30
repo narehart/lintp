@@ -21,7 +21,10 @@ jobs:
         run: |
           asdf plugin add nodejs
           asdf plugin add rust
-          asdf install
+          # Override Node.js version for CI compatibility with Vite 7
+          asdf install nodejs 20.19.0
+          asdf local nodejs 20.19.0
+          asdf install rust
 
       - name: Install dependencies
         run: npm ci
@@ -42,7 +45,10 @@ jobs:
         run: |
           asdf plugin add nodejs
           asdf plugin add rust
-          asdf install
+          # Override Node.js version for CI compatibility with Vite 7
+          asdf install nodejs 20.19.0
+          asdf local nodejs 20.19.0
+          asdf install rust
 
       - name: Install dependencies
         run: npm ci
@@ -63,7 +69,10 @@ jobs:
         run: |
           asdf plugin add nodejs
           asdf plugin add rust
-          asdf install
+          # Override Node.js version for CI compatibility with Vite 7
+          asdf install nodejs 20.19.0
+          asdf local nodejs 20.19.0
+          asdf install rust
 
       - name: Install dependencies
         run: npm ci
@@ -84,7 +93,10 @@ jobs:
         run: |
           asdf plugin add nodejs
           asdf plugin add rust
-          asdf install
+          # Override Node.js version for CI compatibility with Vite 7
+          asdf install nodejs 20.19.0
+          asdf local nodejs 20.19.0
+          asdf install rust
 
       - name: Install dependencies
         run: npm ci
@@ -105,7 +117,10 @@ jobs:
         run: |
           asdf plugin add nodejs
           asdf plugin add rust
-          asdf install
+          # Override Node.js version for CI compatibility with Vite 7
+          asdf install nodejs 20.19.0
+          asdf local nodejs 20.19.0
+          asdf install rust
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -145,7 +160,10 @@ jobs:
         run: |
           asdf plugin add nodejs
           asdf plugin add rust
-          asdf install
+          # Override Node.js version for CI compatibility with Vite 7
+          asdf install nodejs 20.19.0
+          asdf local nodejs 20.19.0
+          asdf install rust
 
       - name: Install dependencies
         run: npm ci
