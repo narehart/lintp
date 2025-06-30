@@ -6,13 +6,14 @@
     "noEmit": false
   },
   "include": [
-    "index.ts"
+    "src/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
     "target",
     "scripts/**/*",
-    "commitlint.config.ts"
+    "commitlint.config.ts",
+    "src/**/*.test.ts"
   ]
 }
