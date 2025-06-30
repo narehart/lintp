@@ -306,7 +306,7 @@ async function runRustCoverage(verbose: boolean = false): Promise<boolean> {
             if (jsonOutput.traces && jsonOutput.traces[filePath]) {
               jsonOutput.traces[filePath].forEach((trace) => {
                 if (trace.line >= funcStart && trace.line <= funcEnd && 
-                    trace.stats && trace.stats.Line > 0) {
+                    trace.stats && trace.stats.Line && trace.stats.Line > 0) {
                   executed = true;
                 }
               });
