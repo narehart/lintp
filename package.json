@@ -2,8 +2,8 @@
   "name": "lintp",
   "version": "0.1.3",
   "description": "File system linter with a custom DSL for directory structure validation",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "bin": {
     "lintp": "./bin/lintp"
   },
@@ -15,8 +15,14 @@
     "check:ts": "tsc --noEmit",
     "check:rust": "cargo check",
     "test": "npm run test:ts && npm run test:rust",
-    "test:ts": "echo \"Error: no test specified\" && exit 1",
+    "test:ts": "vitest run",
     "test:rust": "cargo test",
+    "coverage": "npm run coverage:ts && npm run coverage:rust",
+    "coverage:ts": "vitest run --coverage",
+    "coverage:rust": "cargo tarpaulin --out Html --output-dir target/coverage --fail-under 60",
+    "coverage:check": "tsx scripts/check-coverage.ts",
+    "coverage:check:ts": "tsx scripts/check-coverage.ts --ts",
+    "coverage:check:rust": "tsx scripts/check-coverage.ts --rust",
     "sync-toml": "tsx scripts/sync-toml-to-package.ts",
     "prepublishOnly": "npm run build:ts && npm run sync-toml",
     "format": "npm run format:ts && npm run format:rust",
@@ -28,9 +34,9 @@
     "lint": "npm run lint:ts && npm run lint:rust",
     "lint:ts": "eslint .",
     "lint:rust": "cargo clippy -- -D warnings",
-    "lint:fix": "npm run lint:ts:fix && npm run lint:rust:fix",
-    "lint:ts:fix": "eslint . --fix",
-    "lint:rust:fix": "cargo clippy --fix --allow-dirty --allow-staged",
+    "lint:fix": "npm run lint:fix:ts && npm run lint:fix:rust",
+    "lint:fix:ts": "eslint . --fix",
+    "lint:fix:rust": "cargo clippy --fix --allow-dirty --allow-staged",
     "prepare": "husky",
     "commit": "cz"
   },
@@ -84,6 +90,8 @@
     "@commitlint/types": "^19.8.1",
     "@eslint/js": "^9.30.0",
     "@types/node": "^24.0.7",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
     "commitizen": "^4.3.1",
     "cz-conventional-changelog": "^3.3.0",
     "eslint": "^9.30.0",
@@ -92,6 +100,7 @@
     "smol-toml": "^1.4.0",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.35.0"
+    "typescript-eslint": "^8.35.0",
+    "vitest": "^3.2.4"
   }
 }
