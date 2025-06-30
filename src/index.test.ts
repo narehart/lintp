@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { spawn, type ChildProcess } from "child_process";
+import { type ChildProcess, spawn } from "child_process";
 import { arch, platform } from "os";
 import path from "path";
 
