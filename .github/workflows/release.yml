@@ -1,15 +1,12 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
-  workflow_dispatch:
+  workflow_call:
     inputs:
       tag:
         description: "Tag to release"
         required: true
-        default: "v0.1.0"
+        type: string
 
 permissions:
   contents: write
