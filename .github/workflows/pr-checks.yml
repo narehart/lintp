@@ -25,3 +25,25 @@ jobs:
 
       - name: Run format check
         run: npm run format:check
+
+  lint-check:
+    name: Lint Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install asdf
+        uses: asdf-vm/actions/setup@v3
+
+      - name: Install Node.js and Rust
+        run: |
+          asdf plugin add nodejs
+          asdf plugin add rust
+          asdf install
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint check
+        run: npm run lint
