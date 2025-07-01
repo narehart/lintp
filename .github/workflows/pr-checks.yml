@@ -18,6 +18,7 @@ jobs:
       - name: Install Node.js
         run: |
           asdf plugin add nodejs
+          asdf plugin add rust
           asdf install nodejs
 
       - name: Install dependencies
@@ -69,3 +70,25 @@ jobs:
 
       - name: Run type check
         run: npm run check
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install asdf
+        uses: asdf-vm/actions/setup@v3
+
+      - name: Install Node.js and Rust
+        run: |
+          asdf plugin add nodejs
+          asdf plugin add rust
+          asdf install
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
