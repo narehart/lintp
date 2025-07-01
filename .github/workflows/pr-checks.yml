@@ -66,7 +66,9 @@ jobs:
         run: npm ci
 
       - name: Run format check
-        run: npm run format:check
+        uses: google/wireit@v0.14.12
+        with:
+          script: format:check
 
   lint:
     name: Lint
@@ -82,7 +84,9 @@ jobs:
         run: npm ci
 
       - name: Run lint check
-        run: npm run lint
+        uses: google/wireit@v0.14.12
+        with:
+          script: lint
 
   type-check:
     name: Type Check
@@ -98,7 +102,9 @@ jobs:
         run: npm ci
 
       - name: Run type check
-        run: npm run check
+        uses: google/wireit@v0.14.12
+        with:
+          script: check
 
   test:
     name: Test
@@ -114,4 +120,6 @@ jobs:
         run: npm ci --prefer-offline --no-audit
 
       - name: Run tests
-        run: npm test
+        uses: google/wireit@v0.14.12
+        with:
+          script: test
