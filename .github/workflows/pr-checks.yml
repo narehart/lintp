@@ -13,14 +13,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install asdf
-        uses: asdf-vm/actions/setup@v3
-
-      - name: Install asdf plugins
-        run: |
-          asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
-
-      - name: Install tools
-        run: asdf install nodejs
+        uses: asdf-vm/actions/install@v4
 
       - name: Install dependencies
         run: npm ci
@@ -36,15 +29,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install asdf
-        uses: asdf-vm/actions/setup@v3
-
-      - name: Install asdf plugins
-        run: |
-          asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
-          asdf plugin add rust https://github.com/asdf-community/asdf-rust.git
-
-      - name: Install tools
-        run: asdf install
+        uses: asdf-vm/actions/install@v4
 
       - name: Install dependencies
         run: npm ci
@@ -60,15 +45,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install asdf
-        uses: asdf-vm/actions/setup@v3
-
-      - name: Install asdf plugins
-        run: |
-          asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
-          asdf plugin add rust https://github.com/asdf-community/asdf-rust.git
-
-      - name: Install tools
-        run: asdf install
+        uses: asdf-vm/actions/install@v4
 
       - name: Install dependencies
         run: npm ci
@@ -84,15 +61,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install asdf
-        uses: asdf-vm/actions/setup@v3
-
-      - name: Install asdf plugins
-        run: |
-          asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
-          asdf plugin add rust https://github.com/asdf-community/asdf-rust.git
-
-      - name: Install tools
-        run: asdf install
+        uses: asdf-vm/actions/install@v4
 
       - name: Install dependencies
         run: npm ci
