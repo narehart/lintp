@@ -64,10 +64,10 @@ jobs:
         uses: asdf-vm/actions/install@v4
 
       - name: Install dependencies
-        run: npm ci
-
-      - name: Install vite explicitly
-        run: npm install --save-dev vite@latest
+        run: |
+          npm ci --prefer-offline --no-audit
+          echo "Installed vitest version:"
+          npm list vitest
 
       - name: Run tests
         run: npm test
