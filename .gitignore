@@ -57,6 +57,9 @@ node_modules/
 npm-debug.log
 .npm
 
+# Wireit
+.wireit/
+
 # Backup files
 *.bak
 *.backup

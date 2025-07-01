@@ -8,35 +8,35 @@
     "lintp": "./bin/lintp"
   },
   "scripts": {
-    "build": "npm run build:ts && npm run build:rust",
-    "build:ts": "tsc -p tsconfig.build.json",
-    "build:rust": "cargo build --release",
-    "check": "npm run check:ts && npm run check:rust",
-    "check:ts": "tsc --noEmit",
-    "check:rust": "cargo check",
-    "test": "npm run test:ts && npm run test:rust",
-    "test:ts": "vitest run",
-    "test:rust": "cargo test",
-    "coverage": "npm run coverage:ts && npm run coverage:rust",
-    "coverage:ts": "vitest run --coverage",
-    "coverage:rust": "cargo tarpaulin --out Html --output-dir target/coverage --fail-under 60",
-    "coverage:check": "tsx scripts/check-coverage.ts",
-    "coverage:check:ts": "tsx scripts/check-coverage.ts --ts",
-    "coverage:check:rust": "tsx scripts/check-coverage.ts --rust",
-    "sync-toml": "tsx scripts/sync-toml-to-package.ts",
-    "prepublishOnly": "npm run build:ts && npm run sync-toml",
-    "format": "npm run format:ts && npm run format:rust",
-    "format:ts": "prettier --write .",
-    "format:rust": "cargo fmt",
-    "format:check": "npm run format:ts:check && npm run format:rust:check",
-    "format:ts:check": "prettier --check .",
-    "format:rust:check": "cargo fmt -- --check",
-    "lint": "npm run lint:ts && npm run lint:rust",
-    "lint:ts": "eslint .",
-    "lint:rust": "cargo clippy -- -D warnings",
-    "lint:fix": "npm run lint:fix:ts && npm run lint:fix:rust",
-    "lint:fix:ts": "eslint . --fix",
-    "lint:fix:rust": "cargo clippy --fix --allow-dirty --allow-staged",
+    "build": "wireit",
+    "build:ts": "wireit",
+    "build:rust": "wireit",
+    "check": "wireit",
+    "check:ts": "wireit",
+    "check:rust": "wireit",
+    "test": "wireit",
+    "test:ts": "wireit",
+    "test:rust": "wireit",
+    "coverage": "wireit",
+    "coverage:ts": "wireit",
+    "coverage:rust": "wireit",
+    "coverage:check": "wireit",
+    "coverage:check:ts": "wireit",
+    "coverage:check:rust": "wireit",
+    "sync-toml": "wireit",
+    "prepublishOnly": "wireit",
+    "format": "wireit",
+    "format:ts": "wireit",
+    "format:rust": "wireit",
+    "format:check": "wireit",
+    "format:ts:check": "wireit",
+    "format:rust:check": "wireit",
+    "lint": "wireit",
+    "lint:ts": "wireit",
+    "lint:rust": "wireit",
+    "lint:fix": "wireit",
+    "lint:fix:ts": "wireit",
+    "lint:fix:rust": "wireit",
     "prepare": "husky",
     "commit": "cz"
   },
@@ -101,6 +101,127 @@
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.35.0",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "wireit": "^0.14.12"
+  },
+  "wireit": {
+    "build": {
+      "dependencies": ["build:ts", "build:rust"]
+    },
+    "build:ts": {
+      "command": "tsc -p tsconfig.build.json",
+      "files": ["src/**/*.ts", "tsconfig.build.json", "tsconfig.json"],
+      "output": ["dist/**"]
+    },
+    "build:rust": {
+      "command": "cargo build --release",
+      "files": ["src/**/*.rs", "Cargo.toml", "Cargo.lock"],
+      "output": ["target/release/**"]
+    },
+    "check": {
+      "dependencies": ["check:ts", "check:rust"]
+    },
+    "check:ts": {
+      "command": "tsc --noEmit",
+      "files": ["src/**/*.ts", "test/**/*.ts", "tsconfig.json"]
+    },
+    "check:rust": {
+      "command": "cargo check",
+      "files": ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
+    },
+    "test": {
+      "dependencies": ["test:ts", "test:rust"]
+    },
+    "test:ts": {
+      "command": "vitest run",
+      "files": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"],
+      "dependencies": ["build:ts"]
+    },
+    "test:rust": {
+      "command": "cargo test",
+      "files": ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
+    },
+    "coverage": {
+      "dependencies": ["coverage:ts", "coverage:rust"]
+    },
+    "coverage:ts": {
+      "command": "vitest run --coverage",
+      "files": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"],
+      "output": ["coverage/**"],
+      "dependencies": ["build:ts"]
+    },
+    "coverage:rust": {
+      "command": "cargo tarpaulin --out Html --output-dir target/coverage --fail-under 60",
+      "files": ["src/**/*.rs", "Cargo.toml", "Cargo.lock"],
+      "output": ["target/coverage/**"]
+    },
+    "coverage:check": {
+      "command": "tsx scripts/check-coverage.ts",
+      "files": ["scripts/check-coverage.ts"],
+      "dependencies": ["coverage"]
+    },
+    "coverage:check:ts": {
+      "command": "tsx scripts/check-coverage.ts --ts",
+      "files": ["scripts/check-coverage.ts"],
+      "dependencies": ["coverage:ts"]
+    },
+    "coverage:check:rust": {
+      "command": "tsx scripts/check-coverage.ts --rust",
+      "files": ["scripts/check-coverage.ts"],
+      "dependencies": ["coverage:rust"]
+    },
+    "sync-toml": {
+      "command": "tsx scripts/sync-toml-to-package.ts",
+      "files": ["scripts/sync-toml-to-package.ts", "Cargo.toml", "package.json"]
+    },
+    "prepublishOnly": {
+      "dependencies": ["build:ts", "sync-toml"]
+    },
+    "format": {
+      "dependencies": ["format:ts", "format:rust"]
+    },
+    "format:ts": {
+      "command": "prettier --write .",
+      "files": ["**/*.{ts,js,json,md,yml,yaml}", "!dist/**", "!target/**", "!node_modules/**", "!coverage/**"]
+    },
+    "format:rust": {
+      "command": "cargo fmt",
+      "files": ["src/**/*.rs", "Cargo.toml"]
+    },
+    "format:check": {
+      "dependencies": ["format:ts:check", "format:rust:check"]
+    },
+    "format:ts:check": {
+      "command": "prettier --check .",
+      "files": ["**/*.{ts,js,json,md,yml,yaml}", "!dist/**", "!target/**", "!node_modules/**", "!coverage/**"]
+    },
+    "format:rust:check": {
+      "command": "cargo fmt -- --check",
+      "files": ["src/**/*.rs", "Cargo.toml"]
+    },
+    "lint": {
+      "dependencies": ["lint:ts", "lint:rust"]
+    },
+    "lint:ts": {
+      "command": "eslint .",
+      "files": ["**/*.{ts,js}", "!dist/**", "!target/**", "!node_modules/**", "!coverage/**", "eslint.config.js"],
+      "dependencies": ["check:ts"]
+    },
+    "lint:rust": {
+      "command": "cargo clippy -- -D warnings",
+      "files": ["src/**/*.rs", "Cargo.toml", "Cargo.lock"],
+      "dependencies": ["check:rust"]
+    },
+    "lint:fix": {
+      "dependencies": ["lint:fix:ts", "lint:fix:rust"]
+    },
+    "lint:fix:ts": {
+      "command": "eslint . --fix",
+      "files": ["**/*.{ts,js}", "!dist/**", "!target/**", "!node_modules/**", "!coverage/**", "eslint.config.js"]
+    },
+    "lint:fix:rust": {
+      "command": "cargo clippy --fix --allow-dirty --allow-staged",
+      "files": ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
+    }
   }
 }
