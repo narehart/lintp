@@ -66,8 +66,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install vite explicitly
+        run: npm install --save-dev vite@latest
+
       - name: Run tests
-        run: |
-          node -v
-          npm -v
-          npm test
+        run: npm test
