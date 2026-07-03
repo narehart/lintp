@@ -2,8 +2,115 @@ use anyhow::{Context, Result};
 use glob::Pattern;
 use std::path::{Path, PathBuf};
 
+use crate::dsl::ast::Expression;
 use crate::dsl::evaluator::{EvaluationContext, Value};
 use crate::dsl::parser::parse_expression;
+
+/// Entry point for the collection functions (any/all/map/filter), whose
+/// lambda argument arrives unevaluated so `$item` can be bound per element.
+pub fn call_lambda_function(
+    name: &str,
+    collection: &Value,
+    lambda: &Expression,
+    context: &EvaluationContext,
+) -> Result<Value> {
+    let list = match collection {
+        Value::List(items) => items,
+        _ => {
+            return Err(anyhow::anyhow!("{}() first argument must be a list", name));
+        }
+    };
+
+    // Legacy form: the lambda written as a quoted string ('endsWith($item, ..)')
+    // is parsed as an expression rather than treated as a literal
+    let parsed;
+    let lambda = if let Expression::StringLiteral(s) = lambda {
+        parsed = parse_expression(s).context(format!("Failed to parse expression: {}", s))?;
+        &parsed
+    } else {
+        lambda
+    };
+
+    match name {
+        "any" => {
+            for item in list {
+                if let Value::Boolean(true) = eval_with_item(lambda, item, context)? {
+                    return Ok(Value::Boolean(true));
+                }
+            }
+            Ok(Value::Boolean(false))
+        }
+        "all" => {
+            for item in list {
+                if let Value::Boolean(false) = eval_with_item(lambda, item, context)? {
+                    return Ok(Value::Boolean(false));
+                }
+            }
+            Ok(Value::Boolean(true))
+        }
+        "map" => {
+            let mut result = Vec::new();
+            for item in list {
+                result.push(eval_with_item(lambda, item, context)?);
+            }
+            Ok(Value::List(result))
+        }
+        "filter" => {
+            let mut result = Vec::new();
+            for item in list {
+                if let Value::Boolean(true) = eval_with_item(lambda, item, context)? {
+                    result.push(item.clone());
+                }
+            }
+            Ok(Value::List(result))
+        }
+        _ => Err(anyhow::anyhow!("Unknown lambda function: {}", name)),
+    }
+}
+
+fn eval_with_item(lambda: &Expression, item: &Value, context: &EvaluationContext) -> Result<Value> {
+    let item_context = EvaluationContext {
+        variables: context.variables.clone(),
+        path: context.path,
+        custom_matchers: context.custom_matchers,
+        item_context: Some(item.clone()),
+        fs_cache: context.fs_cache,
+    };
+
+    crate::dsl::evaluator::evaluate(lambda, &item_context)
+}
+
+/// Run a glob, using the run-wide cache when one is available so repeated
+/// lookups of the same pattern don't re-read the filesystem.
+fn glob_paths(pattern: &str, context: &EvaluationContext) -> Result<Vec<PathBuf>> {
+    if let Some(cache) = context.fs_cache {
+        if let Some(paths) = cache.borrow().get(pattern) {
+            return Ok(paths.clone());
+        }
+    }
+
+    let paths: Vec<PathBuf> = glob::glob(pattern)
+        .map_err(|e| anyhow::anyhow!("Invalid glob pattern: {}", e))?
+        .flatten()
+        .collect();
+
+    if let Some(cache) = context.fs_cache {
+        cache
+            .borrow_mut()
+            .insert(pattern.to_string(), paths.clone());
+    }
+
+    Ok(paths)
+}
+
+fn glob_names(pattern: &str, context: &EvaluationContext) -> Result<Vec<Value>> {
+    Ok(glob_paths(pattern, context)?
+        .iter()
+        .filter_map(|path| path.file_name())
+        .filter_map(|name| name.to_str())
+        .map(|name| Value::String(name.to_string()))
+        .collect())
+}
 
 pub fn call_function(name: &str, args: &[Value], context: &EvaluationContext) -> Result<Value> {
     match name {
@@ -14,11 +121,8 @@ pub fn call_function(name: &str, args: &[Value], context: &EvaluationContext) ->
         "children" => children_function(args, context),
         "find" => find_function(args, context),
         "without" => without_function(args, context),
-        "any" => any_function(args, context),
-        "all" => all_function(args, context),
+        "any" | "all" | "map" | "filter" => string_lambda_function(name, args, context),
         "contains" => contains_function(args, context),
-        "map" => map_function(args, context),
-        "filter" => filter_function(args, context),
         "startsWith" => starts_with_function(args, context),
         "endsWith" => ends_with_function(args, context),
         "count" => count_function(args, context),
@@ -118,15 +222,7 @@ fn exists_function(args: &[Value], context: &EvaluationContext) -> Result<Value>
 
     // Count matching files
     let glob_pattern = format!("{}/{}", parent.display(), pattern);
-    let entries =
-        glob::glob(&glob_pattern).map_err(|e| anyhow::anyhow!("Invalid glob pattern: {}", e))?;
-
-    let mut count = 0;
-    for entry in entries {
-        if entry.is_ok() {
-            count += 1;
-        }
-    }
+    let count = glob_paths(&glob_pattern, context)?.len();
 
     // Check if count is within range
     Ok(Value::Boolean(count >= min && count <= max))
@@ -151,20 +247,7 @@ fn siblings_function(args: &[Value], context: &EvaluationContext) -> Result<Valu
 
     // Find matching siblings
     let glob_pattern = format!("{}/{}", parent.display(), pattern);
-    let entries =
-        glob::glob(&glob_pattern).map_err(|e| anyhow::anyhow!("Invalid glob pattern: {}", e))?;
-
-    let mut result = Vec::new();
-
-    for path in entries.flatten() {
-        if let Some(name) = path.file_name() {
-            if let Some(name_str) = name.to_str() {
-                result.push(Value::String(name_str.to_string()));
-            }
-        }
-    }
-
-    Ok(Value::List(result))
+    Ok(Value::List(glob_names(&glob_pattern, context)?))
 }
 
 fn children_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
@@ -188,23 +271,10 @@ fn children_function(args: &[Value], context: &EvaluationContext) -> Result<Valu
 
     // Find matching children
     let glob_pattern = format!("{}/{}", context.path.display(), pattern);
-    let entries =
-        glob::glob(&glob_pattern).map_err(|e| anyhow::anyhow!("Invalid glob pattern: {}", e))?;
-
-    let mut result = Vec::new();
-
-    for path in entries.flatten() {
-        if let Some(name) = path.file_name() {
-            if let Some(name_str) = name.to_str() {
-                result.push(Value::String(name_str.to_string()));
-            }
-        }
-    }
-
-    Ok(Value::List(result))
+    Ok(Value::List(glob_names(&glob_pattern, context)?))
 }
 
-fn find_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {
+fn find_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
     if args.len() != 2 {
         return Err(anyhow::anyhow!("find() requires 2 arguments"));
     }
@@ -230,20 +300,7 @@ fn find_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> 
 
     // Find matching files
     let glob_pattern = format!("{}/{}", dir.display(), pattern);
-    let entries =
-        glob::glob(&glob_pattern).map_err(|e| anyhow::anyhow!("Invalid glob pattern: {}", e))?;
-
-    let mut result = Vec::new();
-
-    for path in entries.flatten() {
-        if let Some(name) = path.file_name() {
-            if let Some(name_str) = name.to_str() {
-                result.push(Value::String(name_str.to_string()));
-            }
-        }
-    }
-
-    Ok(Value::List(result))
+    Ok(Value::List(glob_names(&glob_pattern, context)?))
 }
 
 fn without_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {
@@ -263,17 +320,16 @@ fn without_function(args: &[Value], _context: &EvaluationContext) -> Result<Valu
     }
 }
 
-fn any_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
+/// Back-compat shim: a lambda that arrives as an already-evaluated string
+/// value (e.g. from a string template) is parsed and delegated.
+fn string_lambda_function(
+    name: &str,
+    args: &[Value],
+    context: &EvaluationContext,
+) -> Result<Value> {
     if args.len() != 2 {
-        return Err(anyhow::anyhow!("any() requires 2 arguments"));
+        return Err(anyhow::anyhow!("{}() requires 2 arguments", name));
     }
-
-    let list = match &args[0] {
-        Value::List(items) => items,
-        _ => {
-            return Err(anyhow::anyhow!("any() first argument must be a list"));
-        }
-    };
 
     let expr = match &args[1] {
         Value::String(s) => {
@@ -281,64 +337,13 @@ fn any_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
         }
         _ => {
             return Err(anyhow::anyhow!(
-                "any() second argument must be an expression"
+                "{}() second argument must be an expression",
+                name
             ));
         }
     };
 
-    for item in list {
-        let new_context = EvaluationContext {
-            variables: context.variables.clone(),
-            path: context.path,
-            custom_matchers: context.custom_matchers,
-            item_context: Some(item.clone()),
-        };
-
-        if let Value::Boolean(true) = crate::dsl::evaluator::evaluate(&expr, &new_context)? {
-            return Ok(Value::Boolean(true));
-        }
-    }
-
-    Ok(Value::Boolean(false))
-}
-
-fn all_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 2 {
-        return Err(anyhow::anyhow!("all() requires 2 arguments"));
-    }
-
-    let list = match &args[0] {
-        Value::List(items) => items,
-        _ => {
-            return Err(anyhow::anyhow!("all() first argument must be a list"));
-        }
-    };
-
-    let expr = match &args[1] {
-        Value::String(s) => {
-            parse_expression(s).context(format!("Failed to parse expression: {}", s))?
-        }
-        _ => {
-            return Err(anyhow::anyhow!(
-                "all() second argument must be an expression"
-            ));
-        }
-    };
-
-    for item in list {
-        let new_context = EvaluationContext {
-            variables: context.variables.clone(),
-            path: context.path,
-            custom_matchers: context.custom_matchers,
-            item_context: Some(item.clone()),
-        };
-
-        if let Value::Boolean(false) = crate::dsl::evaluator::evaluate(&expr, &new_context)? {
-            return Ok(Value::Boolean(false));
-        }
-    }
-
-    Ok(Value::Boolean(true))
+    call_lambda_function(name, &args[0], &expr, context)
 }
 
 fn contains_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {
@@ -347,106 +352,16 @@ fn contains_function(args: &[Value], _context: &EvaluationContext) -> Result<Val
     }
 
     match (&args[0], &args[1]) {
-        (Value::List(list), item) => {
-            let mut found = false;
-
-            for list_item in list {
-                if list_item == item {
-                    found = true;
-                    break;
-                }
-            }
-
-            Ok(Value::Boolean(found))
-        }
         (Value::String(haystack), Value::String(needle)) => {
             Ok(Value::Boolean(haystack.contains(needle)))
         }
+        (Value::List(_), _) => Err(anyhow::anyhow!(
+            "contains() checks substrings; for list membership use in(item, list)"
+        )),
         _ => Err(anyhow::anyhow!(
-            "contains() requires list and item or string and substring"
+            "contains() requires string haystack and substring arguments"
         )),
     }
-}
-
-fn map_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 2 {
-        return Err(anyhow::anyhow!("map() requires 2 arguments"));
-    }
-
-    let list = match &args[0] {
-        Value::List(items) => items,
-        _ => {
-            return Err(anyhow::anyhow!("map() first argument must be a list"));
-        }
-    };
-
-    let expr = match &args[1] {
-        Value::String(s) => {
-            parse_expression(s).context(format!("Failed to parse expression: {}", s))?
-        }
-        _ => {
-            return Err(anyhow::anyhow!(
-                "map() second argument must be an expression"
-            ));
-        }
-    };
-
-    let mut result = Vec::new();
-
-    for item in list {
-        let new_context = EvaluationContext {
-            variables: context.variables.clone(),
-            path: context.path,
-            custom_matchers: context.custom_matchers,
-            item_context: Some(item.clone()),
-        };
-
-        let mapped_value = crate::dsl::evaluator::evaluate(&expr, &new_context)?;
-        result.push(mapped_value);
-    }
-
-    Ok(Value::List(result))
-}
-
-fn filter_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 2 {
-        return Err(anyhow::anyhow!("filter() requires 2 arguments"));
-    }
-
-    let list = match &args[0] {
-        Value::List(items) => items,
-        _ => {
-            return Err(anyhow::anyhow!("filter() first argument must be a list"));
-        }
-    };
-
-    let expr = match &args[1] {
-        Value::String(s) => {
-            parse_expression(s).context(format!("Failed to parse expression: {}", s))?
-        }
-        _ => {
-            return Err(anyhow::anyhow!(
-                "filter() second argument must be an expression"
-            ));
-        }
-    };
-
-    let mut result = Vec::new();
-
-    for item in list {
-        let new_context = EvaluationContext {
-            variables: context.variables.clone(),
-            path: context.path,
-            custom_matchers: context.custom_matchers,
-            item_context: Some(item.clone()),
-        };
-
-        if let Value::Boolean(true) = crate::dsl::evaluator::evaluate(&expr, &new_context)? {
-            result.push(item.clone())
-        }
-    }
-
-    Ok(Value::List(result))
 }
 
 fn starts_with_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {
@@ -478,7 +393,9 @@ fn count_function(args: &[Value], _context: &EvaluationContext) -> Result<Value>
 
     match &args[0] {
         Value::List(items) => Ok(Value::Integer(items.len() as i64)),
-        Value::String(s) => Ok(Value::Integer(s.len() as i64)),
+        // Character count, not byte count: names like "café.js" should
+        // measure the same regardless of encoding width
+        Value::String(s) => Ok(Value::Integer(s.chars().count() as i64)),
         _ => Err(anyhow::anyhow!(
             "count() requires a list or string argument"
         )),

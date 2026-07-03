@@ -68,12 +68,12 @@
   },
   "homepage": "https://narehart.github.io/lintp/",
   "files": [
-    "bin/",
+    "bin/lintp",
     "dist/",
     "README.md"
   ],
   "engines": {
-    "node": ">=14"
+    "node": ">=20.19.0"
   },
   "os": [
     "darwin",
@@ -84,6 +84,7 @@
     "x64",
     "arm64"
   ],
+  "//": "optionalDependencies (platform binary packages) are injected at publish time by scripts/sync-optional-deps.ts",
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",

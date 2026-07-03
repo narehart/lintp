@@ -412,7 +412,13 @@ fn test_error_handling_invalid_arguments() -> Result<()> {
 
     // Test map with invalid arguments
     assert!(eval_in_context("map('not a list', '${$item}')", &context).is_err());
-    assert!(eval_in_context("map(['a', 'b'], 123)", &context).is_err());
+
+    // A constant lambda is valid: every item maps to the constant
+    let constant_map = eval_in_context("map(['a', 'b'], 123)", &context)?;
+    assert_eq!(
+        constant_map,
+        Value::List(vec![Value::Integer(123), Value::Integer(123)])
+    );
 
     // Test any/all with invalid arguments
     assert!(eval_in_context("any('not a list', '$item == \"a\"')", &context).is_err());

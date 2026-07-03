@@ -20,7 +20,19 @@ A powerful file system linter that validates directory structures and file namin
 
 ## Installation
 
-### Prerequisites
+### From npm (recommended)
+
+```bash
+# Run without installing
+npx lintp
+
+# Or install globally
+npm install -g lintp
+```
+
+npm installs a prebuilt binary for your platform (macOS, Linux, and Windows on x64/arm64) through `optionalDependencies`. If no prebuilt package matches your platform, the launcher falls back to downloading a checksum-verified binary from the GitHub release.
+
+### Prerequisites (building from source)
 
 This project uses [asdf](https://asdf-vm.com/) to manage tool versions. Make sure you have asdf installed, then run:
 
@@ -33,7 +45,7 @@ asdf install
 ### From Source
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/narehart/lintp.git
 cd lintp
 asdf install  # Install required Node.js and Rust versions
 cargo build --release
@@ -100,7 +112,7 @@ Output:
 ```
 ✓ ./src/utils.js
 ✓ ./src/UserManager.ts
-✗ ./src/badFile.js - .js - Does not match rule: kebab-case && js-file
+✗ ./src/badFile.js - .js - Does not match rule: kebab-case && js-file (failed: kebab-case)
 ✓ ./tests/user-tests.js
 Some files or directories do not match the configured rules.
 ```
@@ -193,6 +205,23 @@ config:
 
   # All files (fallback)
   .*: "basic-naming-rules"
+```
+
+Rule keys are suffix patterns, not just extensions: a file matches every key its path ends with, and the **longest matching suffix wins**. `Button.test.tsx` matches both `.tsx` and `.test.tsx`, and the `.test.tsx` rule is applied. `.*` applies only when no other key matches.
+
+### Custom Failure Messages
+
+Any rule can be written as a map with a `message` that replaces the raw expression in failure output — useful for pointing teammates at your conventions doc:
+
+```yaml
+config:
+  .tsx:
+    rule: "component-file"
+    message: "Component files must be PascalCase (see CONTRIBUTING.md)"
+```
+
+```
+✗ ./src/badName.tsx - .tsx - Component files must be PascalCase (see CONTRIBUTING.md)
 ```
 
 ### Ignore Patterns
@@ -309,7 +338,7 @@ custom-matchers:
 
 #### contains(haystack, needle)
 
-Check if string contains substring or list contains item.
+Check if a string contains a substring. For list membership, use `in(item, list)` instead.
 
 ```yaml
 custom-matchers:
@@ -317,9 +346,9 @@ custom-matchers:
   has-test: 'contains($NAME, "test")'
   in-src: 'contains($PATH, "/src/")'
 
-  # List contains
-  is-script: 'contains(["js", "ts", "jsx", "tsx"], $EXT)'
-  valid-ext: 'contains(["jpg", "png", "gif", "svg"], $EXT)'
+  # List membership uses in(), not contains()
+  is-script: 'in($EXT, ["js", "ts", "jsx", "tsx"])'
+  valid-ext: 'in($EXT, ["jpg", "png", "gif", "svg"])'
 ```
 
 #### startsWith(string, prefix)
@@ -372,7 +401,7 @@ custom-matchers:
 
 #### count(string_or_list)
 
-Get length of string || list.
+Get the length of a string (in characters) or a list.
 
 ```yaml
 custom-matchers:
@@ -768,11 +797,13 @@ All files and directories match the configured rules.
 
 ```
 ✓ ./src/components/Button.tsx
-✗ ./src/badFile.js - .js - Does not match rule: kebab-case && js-file
+✗ ./src/badFile.js - .js - Does not match rule: kebab-case && js-file (failed: kebab-case)
 ✗ ./Invalid-Dir - .dir - Does not match rule: kebab-case || PascalCase
 ✓ ./tests/button.test.tsx
 Some files or directories do not match the configured rules.
 ```
+
+When a rule is a chain of `&&` conditions, the failing condition(s) are listed in the `(failed: ...)` suffix so you don't have to bisect composed rules by hand.
 
 #### Verbose Output
 
@@ -792,7 +823,7 @@ Some files or directories do not match the configured rules.
 
 ### 1. Start Simple
 
-Begin with basic naming conventions && gradually add complexity:
+Begin with basic naming conventions and gradually add complexity:
 
 ```yaml
 # Start with this
@@ -847,7 +878,7 @@ Add comments to explain complex rules:
 
 ```yaml
 custom-matchers:
-  # Component files must be PascalCase && end with .tsx/.jsx
+  # Component files must be PascalCase and end with .tsx/.jsx
   react-component: "PascalCase && component-file"
 
   # Test files must contain "test" or "spec" and have corresponding source file
@@ -898,10 +929,10 @@ ignore:
 #### 1. Configuration File Not Found
 
 ```
-Error: No config file found. Use --config to specify a config file path || create lintp.yml in the current directory.
+Error: No config file found. Use --config to specify a config file path or create lintp.yml in the current directory.
 ```
 
-**Solution:** Create `lintp.yml` || specify config path:
+**Solution:** Create `lintp.yml` or specify a config path:
 
 ```bash
 lintp --config /path/to/config.yml
@@ -913,7 +944,7 @@ lintp --config /path/to/config.yml
 Error: Invalid YAML in config file: expected ':' at line 5
 ```
 
-**Solution:** Check YAML syntax, especially quotes && indentation:
+**Solution:** Check YAML syntax, especially quotes and indentation:
 
 ```yaml
 # Bad
@@ -987,9 +1018,13 @@ custom-matchers:
 lintp --verbose
 ```
 
-This shows which files are being checked && their processing status.
+This shows which files are being checked and their processing status.
 
-#### 2. Test Individual Expressions
+#### 2. Read the (failed: ...) Suffix
+
+When a composed rule fails, the failure line names the specific `&&` condition(s) that failed — start there before bisecting by hand.
+
+#### 3. Test Individual Expressions
 
 Create a minimal config to test specific rules:
 
@@ -1004,7 +1039,7 @@ lintp:
   ignore: []
 ```
 
-#### 3. Check Variable Values
+#### 4. Check Variable Values
 
 Use simple expressions to verify variable contents:
 
@@ -1015,7 +1050,7 @@ custom-matchers:
   debug-ext: '$EXT == "js"'
 ```
 
-#### 4. Validate Regex Patterns
+#### 5. Validate Regex Patterns
 
 Test regex patterns in isolation:
 

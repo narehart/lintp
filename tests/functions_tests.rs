@@ -27,6 +27,7 @@ fn create_test_context<'a>(
         path,
         custom_matchers,
         item_context: None,
+        fs_cache: None,
     }
 }
 
@@ -178,7 +179,8 @@ fn test_contains_function() -> Result<()> {
     let result = call_function("contains", &args, &context)?;
     assert!(matches!(result, Value::Boolean(false)));
 
-    // Test with list contains item
+    // List membership moved to in(); contains() rejects lists with a
+    // pointer to the right function
     let args = vec![
         Value::List(vec![
             Value::String("js".to_string()),
@@ -186,19 +188,9 @@ fn test_contains_function() -> Result<()> {
         ]),
         Value::String("js".to_string()),
     ];
-    let result = call_function("contains", &args, &context)?;
-    assert!(matches!(result, Value::Boolean(true)));
-
-    // Test with list does not contain item
-    let args = vec![
-        Value::List(vec![
-            Value::String("js".to_string()),
-            Value::String("ts".to_string()),
-        ]),
-        Value::String("php".to_string()),
-    ];
-    let result = call_function("contains", &args, &context)?;
-    assert!(matches!(result, Value::Boolean(false)));
+    let result = call_function("contains", &args, &context);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("in(item, list)"));
 
     // Test with invalid number of arguments
     let args = vec![Value::String("test.js".to_string())];
@@ -289,6 +281,11 @@ fn test_count_function() -> Result<()> {
 
     // Test counting string length
     let args = vec![Value::String("test.js".to_string())];
+    let result = call_function("count", &args, &context)?;
+    assert!(matches!(result, Value::Integer(7)));
+
+    // Multibyte strings count characters, not bytes
+    let args = vec![Value::String("café.js".to_string())];
     let result = call_function("count", &args, &context)?;
     assert!(matches!(result, Value::Integer(7)));
 

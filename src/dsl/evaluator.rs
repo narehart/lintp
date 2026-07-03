@@ -1,5 +1,6 @@
 use anyhow::{Context as ErrorContext, Result};
 use regex::Regex;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -52,11 +53,17 @@ impl PartialEq for Value {
     }
 }
 
+/// Cache of glob results shared across a lint run so the collection
+/// functions (siblings/children/exists/find) don't re-read the same
+/// directory for every file they are evaluated against.
+pub type FsCache = RefCell<HashMap<String, Vec<PathBuf>>>;
+
 pub struct EvaluationContext<'a> {
     pub variables: HashMap<String, Value>,
     pub path: &'a Path,
     pub custom_matchers: &'a HashMap<String, Expression>,
     pub item_context: Option<Value>, // For map/filter operations
+    pub fs_cache: Option<&'a FsCache>,
 }
 
 pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value> {
@@ -172,6 +179,14 @@ pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value>
         }
 
         Expression::FunctionCall { name, args } => {
+            // The collection functions take a lambda as their second argument.
+            // It must NOT be evaluated eagerly: `$item` is only bound while
+            // iterating, so the lambda is passed through as an expression.
+            if matches!(name.as_str(), "any" | "all" | "map" | "filter") && args.len() == 2 {
+                let collection = evaluate(&args[0], context)?;
+                return functions::call_lambda_function(name, &collection, &args[1], context);
+            }
+
             let mut arg_values = Vec::new();
 
             for arg in args {

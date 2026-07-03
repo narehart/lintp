@@ -1,2 +1,5 @@
 #!/usr/bin/env node
-require('../dist/src/index.js');
+require('../dist/src/index.js').main().catch((error) => {
+  console.error('Failed to start lintp:', error);
+  process.exit(1);
+});

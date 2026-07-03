@@ -1,102 +1,207 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { type ChildProcess, spawn } from "child_process";
-import { arch, platform } from "os";
+import { arch, homedir, platform } from "os";
+import { existsSync } from "fs";
+import { createHash } from "crypto";
 import path from "path";
 
 vi.mock("child_process");
 vi.mock("os");
+vi.mock("fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("fs")>();
+  return {
+    ...actual,
+    existsSync: vi.fn(actual.existsSync),
+  };
+});
+
+let actualFs: typeof import("fs");
+
+beforeAll(async () => {
+  actualFs = await vi.importActual<typeof import("fs")>("fs");
+});
+
+function realPackageVersion(): string {
+  const pkg = JSON.parse(
+    actualFs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")
+  ) as { version: string };
+  return pkg.version;
+}
 
 describe("index.ts", () => {
   const mockSpawn = vi.mocked(spawn);
   const mockPlatform = vi.mocked(platform);
   const mockArch = vi.mocked(arch);
+  const mockHomedir = vi.mocked(homedir);
+  const mockExistsSync = vi.mocked(existsSync);
 
   beforeEach(() => {
     vi.resetAllMocks();
     vi.clearAllMocks();
     vi.resetModules();
+    // Default: real filesystem behavior (package.json discovery etc.)
+    mockExistsSync.mockImplementation(actualFs.existsSync);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  describe("getBinaryName", () => {
-    it("should return windows binary for win32 platform", async () => {
-      mockPlatform.mockReturnValue("win32");
-      mockArch.mockReturnValue("x64");
+  describe("getPlatformTarget", () => {
+    it.each([
+      ["win32", "x64", "x86_64-pc-windows-msvc"],
+      ["win32", "arm64", "x86_64-pc-windows-msvc"],
+      ["darwin", "x64", "x86_64-apple-darwin"],
+      ["darwin", "arm64", "aarch64-apple-darwin"],
+      ["linux", "x64", "x86_64-unknown-linux-gnu"],
+      ["linux", "arm64", "aarch64-unknown-linux-gnu"],
+    ])("maps %s/%s to %s", async (plat, architecture, expected) => {
+      mockPlatform.mockReturnValue(plat as NodeJS.Platform);
+      mockArch.mockReturnValue(architecture as NodeJS.Architecture);
 
-      const { getBinaryName } = await import("./index");
-      expect(getBinaryName()).toBe("lintp.exe");
+      const { getPlatformTarget } = await import("./index");
+      expect(getPlatformTarget()).toBe(expected);
     });
 
-    it("should return windows binary for win32 platform arm64", async () => {
-      mockPlatform.mockReturnValue("win32");
-      mockArch.mockReturnValue("arm64");
-
-      const { getBinaryName } = await import("./index");
-      expect(getBinaryName()).toBe("lintp.exe");
-    });
-
-    it("should return macos binary for darwin platform x64", async () => {
-      mockPlatform.mockReturnValue("darwin");
-      mockArch.mockReturnValue("x64");
-
-      const { getBinaryName } = await import("./index");
-      expect(getBinaryName()).toBe("lintp-macos-x64");
-    });
-
-    it("should return macos binary for darwin arm64", async () => {
-      mockPlatform.mockReturnValue("darwin");
-      mockArch.mockReturnValue("arm64");
-
-      const { getBinaryName } = await import("./index");
-      expect(getBinaryName()).toBe("lintp-macos-arm64");
-    });
-
-    it("should return linux binary for linux platform x64", async () => {
-      mockPlatform.mockReturnValue("linux");
-      mockArch.mockReturnValue("x64");
-
-      const { getBinaryName } = await import("./index");
-      expect(getBinaryName()).toBe("lintp-linux-x64");
-    });
-
-    it("should return linux binary for linux platform arm64", async () => {
-      mockPlatform.mockReturnValue("linux");
-      mockArch.mockReturnValue("arm64");
-
-      const { getBinaryName } = await import("./index");
-      expect(getBinaryName()).toBe("lintp-linux-arm64");
-    });
-
-    it("should return base binary name for unsupported platform", async () => {
+    it("throws for unsupported platforms", async () => {
       mockPlatform.mockReturnValue("freebsd" as NodeJS.Platform);
       mockArch.mockReturnValue("x64");
+
+      const { getPlatformTarget } = await import("./index");
+      expect(() => getPlatformTarget()).toThrow("Unsupported platform");
+    });
+  });
+
+  describe("getBinaryName", () => {
+    it("returns lintp.exe on windows", async () => {
+      mockPlatform.mockReturnValue("win32");
+
+      const { getBinaryName } = await import("./index");
+      expect(getBinaryName()).toBe("lintp.exe");
+    });
+
+    it("returns lintp elsewhere", async () => {
+      mockPlatform.mockReturnValue("darwin");
 
       const { getBinaryName } = await import("./index");
       expect(getBinaryName()).toBe("lintp");
     });
+  });
 
-    it("should default to x64 for unsupported architecture on darwin", async () => {
+  describe("getAssetName", () => {
+    it("matches the release asset naming for unix targets", async () => {
       mockPlatform.mockReturnValue("darwin");
-      mockArch.mockReturnValue("ia32");
+      mockArch.mockReturnValue("arm64");
 
-      const { getBinaryName } = await import("./index");
-      expect(getBinaryName()).toBe("lintp-macos-x64");
+      const { getAssetName } = await import("./index");
+      expect(getAssetName()).toBe("lintp-aarch64-apple-darwin");
     });
 
-    it("should default to x64 for unsupported architecture on linux", async () => {
-      mockPlatform.mockReturnValue("linux");
-      mockArch.mockReturnValue("ia32");
+    it("appends .exe for windows", async () => {
+      mockPlatform.mockReturnValue("win32");
+      mockArch.mockReturnValue("x64");
 
-      const { getBinaryName } = await import("./index");
-      expect(getBinaryName()).toBe("lintp-linux-x64");
+      const { getAssetName } = await import("./index");
+      expect(getAssetName()).toBe("lintp-x86_64-pc-windows-msvc.exe");
+    });
+  });
+
+  describe("getPlatformPackageName", () => {
+    it.each([
+      ["darwin", "arm64", "lintp-darwin-arm64"],
+      ["darwin", "x64", "lintp-darwin-x64"],
+      ["linux", "arm64", "lintp-linux-arm64"],
+      ["linux", "x64", "lintp-linux-x64"],
+      ["win32", "x64", "lintp-win32-x64"],
+      // Windows on ARM falls back to the emulated x64 build
+      ["win32", "arm64", "lintp-win32-x64"],
+    ])("maps %s/%s to %s", async (plat, architecture, expected) => {
+      mockPlatform.mockReturnValue(plat as NodeJS.Platform);
+      mockArch.mockReturnValue(architecture as NodeJS.Architecture);
+
+      const { getPlatformPackageName } = await import("./index");
+      expect(getPlatformPackageName()).toBe(expected);
+    });
+
+    it("returns null for unsupported platforms", async () => {
+      mockPlatform.mockReturnValue("freebsd" as NodeJS.Platform);
+      mockArch.mockReturnValue("x64");
+
+      const { getPlatformPackageName } = await import("./index");
+      expect(getPlatformPackageName()).toBeNull();
+    });
+  });
+
+  describe("resolveInstalledBinary", () => {
+    it("returns null when the platform package is not installed", async () => {
+      mockPlatform.mockReturnValue("darwin");
+      mockArch.mockReturnValue("arm64");
+
+      const { resolveInstalledBinary } = await import("./index");
+      expect(resolveInstalledBinary()).toBeNull();
+    });
+
+    it("returns null for unsupported platforms", async () => {
+      mockPlatform.mockReturnValue("freebsd" as NodeJS.Platform);
+      mockArch.mockReturnValue("x64");
+
+      const { resolveInstalledBinary } = await import("./index");
+      expect(resolveInstalledBinary()).toBeNull();
+    });
+  });
+
+  describe("getPackageVersion", () => {
+    it("finds the project package.json version", async () => {
+      const { getPackageVersion } = await import("./index");
+      expect(getPackageVersion()).toBe(realPackageVersion());
+    });
+  });
+
+  describe("getBinaryPath", () => {
+    it("builds a per-version path under the home directory", async () => {
+      mockPlatform.mockReturnValue("linux");
+      mockArch.mockReturnValue("x64");
+      mockHomedir.mockReturnValue("/home/test");
+
+      const { getBinaryPath } = await import("./index");
+      expect(getBinaryPath()).toBe(
+        path.join("/home/test", ".lintp", "bin", realPackageVersion(), "lintp")
+      );
+    });
+  });
+
+  describe("verifyChecksum", () => {
+    const data = Buffer.from("lintp binary contents");
+    const digest = createHash("sha256").update(data).digest("hex");
+
+    it("accepts a matching digest", async () => {
+      const { verifyChecksum } = await import("./index");
+      expect(verifyChecksum(data, digest)).toBe(true);
+    });
+
+    it("accepts shasum-style 'digest  filename' output", async () => {
+      const { verifyChecksum } = await import("./index");
+      expect(
+        verifyChecksum(data, `${digest}  lintp-x86_64-apple-darwin\n`)
+      ).toBe(true);
+    });
+
+    it("rejects a mismatched digest", async () => {
+      const { verifyChecksum } = await import("./index");
+      expect(verifyChecksum(data, "0".repeat(64))).toBe(false);
     });
   });
 
   describe("spawnBinary", () => {
-    it("should spawn child process with correct arguments", async () => {
+    it("spawns the child process with correct arguments", async () => {
       const mockChild = {
         on: vi.fn(),
       };
@@ -125,10 +230,7 @@ describe("index.ts", () => {
   });
 
   describe("handleBinaryError", () => {
-    it("should handle ENOENT error", async () => {
-      mockPlatform.mockReturnValue("linux");
-      mockArch.mockReturnValue("x64");
-
+    it("reports a missing binary and exits on ENOENT", async () => {
       const consoleError = vi
         .spyOn(console, "error")
         .mockImplementation(() => {});
@@ -145,17 +247,15 @@ describe("index.ts", () => {
       );
 
       expect(consoleError).toHaveBeenCalledWith(
-        expect.stringContaining("Error: Binary not found for your platform")
+        "Error: Binary not found at: /path/to/binary"
       );
-      expect(consoleError).toHaveBeenCalledWith(
-        "Expected binary at: /path/to/binary"
-      );
+      expect(processExit).toHaveBeenCalledWith(1);
 
       consoleError.mockRestore();
       processExit.mockRestore();
     });
 
-    it("should throw other errors", async () => {
+    it("rethrows other errors", async () => {
       const { handleBinaryError } = await import("./index");
       const error = new Error("Some other error");
 
@@ -166,7 +266,7 @@ describe("index.ts", () => {
   });
 
   describe("handleBinaryExit", () => {
-    it("should handle exit with code", async () => {
+    it("exits with the child's exit code", async () => {
       const processExit = vi
         .spyOn(process, "exit")
         .mockImplementation(() => undefined as never);
@@ -178,7 +278,7 @@ describe("index.ts", () => {
       processExit.mockRestore();
     });
 
-    it("should handle exit with code 0 when null", async () => {
+    it("exits with 0 when the code is null", async () => {
       const processExit = vi
         .spyOn(process, "exit")
         .mockImplementation(() => undefined as never);
@@ -190,7 +290,7 @@ describe("index.ts", () => {
       processExit.mockRestore();
     });
 
-    it("should handle exit with signal", async () => {
+    it("re-raises the child's signal", async () => {
       const processKill = vi
         .spyOn(process, "kill")
         .mockImplementation(() => true);
@@ -204,10 +304,16 @@ describe("index.ts", () => {
   });
 
   describe("main", () => {
-    it("should call spawnBinary with correct arguments", async () => {
+    it("spawns the cached binary without downloading", async () => {
       mockPlatform.mockReturnValue("darwin");
       mockArch.mockReturnValue("x64");
+      mockHomedir.mockReturnValue("/home/test");
       process.argv = ["node", "index.js", "--help", "--version"];
+
+      // package.json discovery stays real; the cached binary "exists"
+      mockExistsSync.mockImplementation((p) =>
+        String(p).endsWith("package.json") ? actualFs.existsSync(p) : true
+      );
 
       const mockChild = {
         on: vi.fn(),
@@ -215,19 +321,33 @@ describe("index.ts", () => {
       mockSpawn.mockReturnValue(mockChild as unknown as ChildProcess);
 
       const { main } = await import("./index");
-      main();
+      await main();
 
+      const expectedBinary = path.join(
+        "/home/test",
+        ".lintp",
+        "bin",
+        realPackageVersion(),
+        "lintp"
+      );
       expect(mockSpawn).toHaveBeenCalledWith(
-        expect.stringContaining(path.join("bin", "lintp-macos-x64")),
+        expectedBinary,
         ["--help", "--version"],
         { stdio: "inherit", env: process.env }
       );
+      expect(mockChild.on).toHaveBeenCalledWith("error", expect.any(Function));
+      expect(mockChild.on).toHaveBeenCalledWith("exit", expect.any(Function));
     });
 
-    it("should handle errors and exits", async () => {
+    it("wires error and exit handling to the child process", async () => {
       mockPlatform.mockReturnValue("linux");
       mockArch.mockReturnValue("arm64");
+      mockHomedir.mockReturnValue("/home/test");
       process.argv = ["node", "index.js"];
+
+      mockExistsSync.mockImplementation((p) =>
+        String(p).endsWith("package.json") ? actualFs.existsSync(p) : true
+      );
 
       const mockChild = {
         on: vi.fn(),
@@ -242,9 +362,8 @@ describe("index.ts", () => {
       });
 
       const { main } = await import("./index");
-      main();
+      await main();
 
-      // Get the callbacks
       const errorCallback = mockChild.on.mock.calls.find(
         (call) => call[0] === "error"
       )?.[1];
@@ -252,19 +371,16 @@ describe("index.ts", () => {
         (call) => call[0] === "exit"
       )?.[1];
 
-      // Test error handling
       const error = new Error("File not found") as NodeJS.ErrnoException;
       error.code = "ENOENT";
 
       expect(() => errorCallback(error)).toThrow("process.exit called");
       expect(consoleError).toHaveBeenCalledWith(
-        expect.stringContaining("Error: Binary not found for your platform")
+        expect.stringContaining("Error: Binary not found at:")
       );
 
-      // Reset process.exit mock to not throw
       processExit.mockImplementation(() => undefined as never);
 
-      // Test exit handling
       exitCallback(0, null);
       expect(processExit).toHaveBeenCalledWith(0);
 
@@ -273,18 +389,19 @@ describe("index.ts", () => {
     });
   });
 
-  describe("main execution", () => {
-    it("should test that main module check exists", async () => {
-      // Simply verify the module exports and the if check exists
+  describe("module exports", () => {
+    it("exposes the public API", async () => {
       const module = await import("./index");
 
       expect(module.main).toBeDefined();
+      expect(module.getPlatformTarget).toBeDefined();
       expect(module.getBinaryName).toBeDefined();
+      expect(module.getAssetName).toBeDefined();
+      expect(module.getBinaryPath).toBeDefined();
+      expect(module.verifyChecksum).toBeDefined();
       expect(module.spawnBinary).toBeDefined();
       expect(module.handleBinaryError).toBeDefined();
       expect(module.handleBinaryExit).toBeDefined();
-
-      // The actual main execution is covered by the 'main' tests above
     });
   });
 });

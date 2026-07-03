@@ -51,7 +51,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["scripts/**/*.ts", "index.ts"],
+    files: ["scripts/**/*.ts", "index.ts", "src/index.ts"],
     rules: {
       "no-console": "off",
     },

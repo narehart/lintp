@@ -228,3 +228,54 @@ lintp:
 
     Ok(())
 }
+
+/// Rules referencing unknown matchers must fail at config load time,
+/// not when a matching file is first linted.
+#[test]
+fn test_unknown_matcher_reference_fails_at_load() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let config_path = temp_dir.path().join("lintp.yml");
+    std::fs::write(
+        &config_path,
+        r#"
+lintp:
+  custom-matchers:
+    kebab-case: "matches($BASENAME, /^[a-z-]+$/)"
+  config:
+    .js: "keba-case"
+  ignore: []
+"#,
+    )?;
+
+    let Err(error) = load_config(&config_path) else {
+        panic!("Expected load_config to reject the typo");
+    };
+    let message = format!("{:#}", error);
+    assert!(
+        message.contains("keba-case"),
+        "Error should name the unknown matcher, got: {}",
+        message
+    );
+
+    Ok(())
+}
+
+/// Malformed rule expressions must also fail at load time.
+#[test]
+fn test_malformed_rule_fails_at_load() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let config_path = temp_dir.path().join("lintp.yml");
+    std::fs::write(
+        &config_path,
+        r#"
+lintp:
+  config:
+    .js: "kebab-case &&"
+  ignore: []
+"#,
+    )?;
+
+    assert!(load_config(&config_path).is_err());
+
+    Ok(())
+}

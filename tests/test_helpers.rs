@@ -2,10 +2,18 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use lintp::config::{Config, LintPConfig, RuleConfig};
+use lintp::config::{Config, LintPConfig, RuleConfig, RuleEntry};
 use lintp::dsl::ast::Expression;
 use lintp::dsl::evaluator::{EvaluationContext, Value};
 use lintp::dsl::parser::parse_expression;
+
+/// Shorthand for a rule entry without a custom message
+pub fn rule(rule: &str) -> RuleEntry {
+    RuleEntry {
+        rule: rule.to_string(),
+        message: None,
+    }
+}
 
 /// Create a temporary directory for testing
 pub fn create_temp_dir() -> Result<PathBuf> {
@@ -82,6 +90,7 @@ pub fn create_test_evaluation_context<'a>(
         path,
         custom_matchers,
         item_context: None,
+        fs_cache: None,
     }
 }
 
@@ -103,22 +112,22 @@ pub fn parse_custom_matchers(
 pub fn create_test_config() -> Result<Config> {
     // Create global rules
     let mut global_rules = HashMap::new();
-    global_rules.insert(".dir".to_string(), "kebab-case or PascalCase".to_string());
-    global_rules.insert(".js".to_string(), "js-file".to_string());
+    global_rules.insert(".dir".to_string(), rule("kebab-case or PascalCase"));
+    global_rules.insert(".js".to_string(), rule("js-file"));
 
     // Create path rules
     let mut path_rules = HashMap::new();
 
     // Rules for src/components
     let mut component_rules = HashMap::new();
-    component_rules.insert(".dir".to_string(), "PascalCase".to_string());
-    component_rules.insert(".js".to_string(), "PascalCase and js-file".to_string());
+    component_rules.insert(".dir".to_string(), rule("PascalCase"));
+    component_rules.insert(".js".to_string(), rule("PascalCase and js-file"));
     path_rules.insert("src/components/*".to_string(), component_rules);
 
     // Rules for src/utils
     let mut utils_rules = HashMap::new();
-    utils_rules.insert(".dir".to_string(), "kebab-case".to_string());
-    utils_rules.insert(".js".to_string(), "kebab-case and js-file".to_string());
+    utils_rules.insert(".dir".to_string(), rule("kebab-case"));
+    utils_rules.insert(".js".to_string(), rule("kebab-case and js-file"));
     path_rules.insert("src/utils/*".to_string(), utils_rules);
 
     // Create rule config

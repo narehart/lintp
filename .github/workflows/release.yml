@@ -2,48 +2,59 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Tag to release"
-        required: true
-        default: "v0.1.0"
+    branches:
+      - main
 
 permissions:
   contents: write
-  actions: write
+  pull-requests: write
 
 jobs:
-  build:
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: google-github-actions/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release-type: rust
+          extra-files: |
+            package.json
+
+  build-binaries:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
     strategy:
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
-
-          - target: x86_64-apple-darwin
-            os: macos-latest
-
-          - target: aarch64-apple-darwin
-            os: macos-latest
-
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-
+            name: windows-x64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            name: darwin-x64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            name: darwin-arm64
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: linux-x64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: linux-arm64
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Install asdf
         uses: asdf-vm/actions/install@v4
 
-      - name: Add Rust target
+      - name: Add rust target
         run: rustup target add ${{ matrix.target }}
 
       - name: Install cross-compilation tools
@@ -54,52 +65,86 @@ jobs:
 
       - name: Build binary
         run: cargo build --release --target ${{ matrix.target }}
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
       - name: Package binary
         shell: bash
         run: |
-          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-            BINARY_NAME="lintp.exe"
-            ARCHIVE_NAME="lintp-${{ matrix.target }}.exe"
-          else
-            BINARY_NAME="lintp"
-            ARCHIVE_NAME="lintp-${{ matrix.target }}"
+          # Asset names must match what the npm wrapper (src/index.ts) downloads:
+          # lintp-<target>[.exe] plus a companion .sha256 checksum file.
+          binary_name="lintp"
+          asset_name="lintp-${{ matrix.target }}"
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            binary_name="${binary_name}.exe"
+            asset_name="${asset_name}.exe"
           fi
 
-          cp "target/${{ matrix.target }}/release/$BINARY_NAME" "$ARCHIVE_NAME"
+          mkdir -p release-assets
+          cp "target/${{ matrix.target }}/release/${binary_name}" "release-assets/${asset_name}"
+          cd release-assets
+          shasum -a 256 "${asset_name}" > "${asset_name}.sha256"
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: lintp-${{ matrix.target }}
-          path: lintp-${{ matrix.target }}*
-
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Generate GitHub App Token
-        id: app-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create Release
+      - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/**/*
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          token: ${{ steps.app-token.outputs.token }}
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: release-assets/lintp-${{ matrix.target }}*
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish platform package to npm
+        shell: bash
+        run: |
+          PKG_DIR=$(npx tsx scripts/prepare-platform-package.ts --target ${{ matrix.target }} | sed 's/^Platform package ready: //')
+          npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
+          npm publish "$PKG_DIR"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-npm:
+    needs: [release-please, build-binaries]
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Install asdf
+        uses: asdf-vm/actions/install@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Pin platform packages as optionalDependencies
+        run: npx tsx scripts/sync-optional-deps.ts
+
+      - name: Configure npm registry
+        run: npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-crate:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Install asdf
+        uses: asdf-vm/actions/install@v4
+
+      - name: Publish to crates.io
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
