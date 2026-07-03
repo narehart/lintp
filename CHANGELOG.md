@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/narehart/lintp/compare/v0.2.0...v0.2.1) (2026-07-03)
+
+
+### Bug Fixes
+
+* exclude release-please changelog from prettier ([566f27e](https://github.com/narehart/lintp/commit/566f27efbeb6e15ff88ef1e31a57c4cd01765725))
+* use platform-native toolchain actions in binary build matrix ([2dbddbe](https://github.com/narehart/lintp/commit/2dbddbe47d20ea86e61b11a3f4e77f513265bf08))
+
 ## [0.2.0](https://github.com/narehart/lintp/compare/v0.1.3...v0.2.0) (2026-07-03)
 
 
