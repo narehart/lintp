@@ -25,10 +25,18 @@ pub struct LintPConfig {
     pub ignore: Vec<String>,
 }
 
+/// A rule expression plus an optional human-readable message shown instead
+/// of the raw expression when the rule fails.
+#[derive(Debug, Clone)]
+pub struct RuleEntry {
+    pub rule: String,
+    pub message: Option<String>,
+}
+
 #[derive(Debug)]
 pub struct RuleConfig {
-    pub global_rules: HashMap<String, String>,
-    pub path_rules: HashMap<String, HashMap<String, String>>,
+    pub global_rules: HashMap<String, RuleEntry>,
+    pub path_rules: HashMap<String, HashMap<String, RuleEntry>>,
 }
 
 // Custom deserializer for RuleConfig that rejects invalid values
@@ -65,9 +73,24 @@ where
         // Process the value based on its type
         match value {
             Value::String(s) => {
-                global_rules.insert(key, s);
+                global_rules.insert(
+                    key,
+                    RuleEntry {
+                        rule: s,
+                        message: None,
+                    },
+                );
             }
             Value::Mapping(nested_map) => {
+                // A mapping with a `rule` key is a rule with options
+                // (`{rule: ..., message: ...}`); any other mapping is a
+                // path-scoped block of extension rules.
+                if nested_map.contains_key(Value::String("rule".to_string())) {
+                    let entry = rule_entry_from_mapping::<D>(&key, nested_map)?;
+                    global_rules.insert(key, entry);
+                    continue;
+                }
+
                 let mut rule_map = HashMap::new();
 
                 for (nested_key_value, nested_value) in nested_map {
@@ -79,18 +102,24 @@ where
                         }
                     };
 
-                    // Extract the nested value as a string
-                    let nested_string = match nested_value {
-                        Value::String(s) => s,
+                    // Extract the nested value: a rule string or {rule, message}
+                    let entry = match nested_value {
+                        Value::String(s) => RuleEntry {
+                            rule: s,
+                            message: None,
+                        },
+                        Value::Mapping(rule_map_value) => {
+                            rule_entry_from_mapping::<D>(&nested_key, rule_map_value)?
+                        }
                         _ => {
                             return Err(D::Error::custom(format!(
-                                "Value for '{}' must be a string",
+                                "Value for '{}' must be a string or a map",
                                 nested_key
                             )));
                         }
                     };
 
-                    rule_map.insert(nested_key, nested_string);
+                    rule_map.insert(nested_key, entry);
                 }
 
                 path_rules.insert(key, rule_map);
@@ -110,6 +139,54 @@ where
     })
 }
 
+fn rule_entry_from_mapping<'de, D>(
+    key: &str,
+    mapping: serde_yaml::Mapping,
+) -> Result<RuleEntry, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::Error;
+
+    let mut rule = None;
+    let mut message = None;
+
+    for (option_key, option_value) in mapping {
+        let option_name = match option_key {
+            Value::String(s) => s,
+            _ => {
+                return Err(D::Error::custom("Config keys must be strings"));
+            }
+        };
+
+        let option_string = match option_value {
+            Value::String(s) => s,
+            _ => {
+                return Err(D::Error::custom(format!(
+                    "'{}' for rule '{}' must be a string",
+                    option_name, key
+                )));
+            }
+        };
+
+        match option_name.as_str() {
+            "rule" => rule = Some(option_string),
+            "message" => message = Some(option_string),
+            other => {
+                return Err(D::Error::custom(format!(
+                    "Unknown option '{}' for rule '{}': expected 'rule' or 'message'",
+                    other, key
+                )));
+            }
+        }
+    }
+
+    let rule = rule
+        .ok_or_else(|| D::Error::custom(format!("Rule '{}' is missing the 'rule' field", key)))?;
+
+    Ok(RuleEntry { rule, message })
+}
+
 pub fn load_config(path: &Path) -> Result<ParsedConfig> {
     let config_str = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read config file: {}", path.display()))?;
@@ -126,15 +203,74 @@ pub fn load_config(path: &Path) -> Result<ParsedConfig> {
     // Parse custom matchers
     let parsed_matchers = parse_custom_matchers(&config.lintp.custom_matchers)?;
 
+    // Parse every rule up front so config errors surface at startup
+    // instead of when a matching file first appears
+    let parsed_rules = parse_rules(&config, &parsed_matchers)?;
+
     Ok(ParsedConfig {
         raw: config,
         parsed_matchers,
+        parsed_rules,
     })
 }
 
 pub struct ParsedConfig {
     pub raw: Config,
     pub parsed_matchers: HashMap<String, Expression>,
+    /// Every distinct rule string, pre-parsed. Populated by load_config;
+    /// rules missing from this map are parsed lazily during linting.
+    pub parsed_rules: HashMap<String, Expression>,
+}
+
+/// Eagerly parse all global and path-scoped rules and check that every
+/// matcher reference resolves, so typos fail at load time with the rule
+/// location instead of surfacing mid-lint.
+fn parse_rules(
+    config: &Config,
+    matchers: &HashMap<String, Expression>,
+) -> Result<HashMap<String, Expression>> {
+    let mut parsed = HashMap::new();
+
+    let global = config
+        .lintp
+        .config
+        .global_rules
+        .iter()
+        .map(|(key, entry)| (format!("rule '{}'", key), &entry.rule));
+    let scoped = config
+        .lintp
+        .config
+        .path_rules
+        .iter()
+        .flat_map(|(path, rules)| {
+            rules
+                .iter()
+                .map(move |(key, entry)| (format!("rule '{}' under '{}'", key, path), &entry.rule))
+        });
+
+    for (location, rule_str) in global.chain(scoped) {
+        if parsed.contains_key(rule_str) {
+            continue;
+        }
+
+        let expr = parse_expression(rule_str)
+            .with_context(|| format!("Failed to parse {}: {}", location, rule_str))?;
+
+        for reference in find_references_in_expression(&expr) {
+            if !matchers.contains_key(&reference) {
+                return Err(anyhow::anyhow!(
+                    "Unknown matcher '{}' referenced by {}: {}",
+                    reference,
+                    location,
+                    rule_str
+                ));
+            }
+        }
+
+        parsed.insert(rule_str.clone(), expr);
+    }
+
+    Ok(parsed)
 }
 
 fn parse_custom_matchers(

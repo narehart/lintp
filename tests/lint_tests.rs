@@ -81,6 +81,7 @@ fn create_test_config() -> Result<ParsedConfig> {
     let parsed_config = ParsedConfig {
         raw: config,
         parsed_matchers: custom_matchers,
+        parsed_rules: HashMap::new(),
     };
 
     Ok(parsed_config)
@@ -337,12 +338,13 @@ fn test_lint_error_handling() -> Result<()> {
     let mut config = create_test_config()?;
 
     // Create a rule with an invalid expression
-    config
-        .raw
-        .lintp
-        .config
-        .global_rules
-        .insert(".test".to_string(), "invalid expression syntax".to_string());
+    config.raw.lintp.config.global_rules.insert(
+        ".test".to_string(),
+        lintp::config::RuleEntry {
+            rule: "invalid expression syntax".to_string(),
+            message: None,
+        },
+    );
 
     // Create a file that would match this rule
     std::fs::write(
@@ -371,6 +373,187 @@ fn test_lint_verbose_output() -> Result<()> {
     let results = run_lint(&test_dir.path, &config, true)?;
 
     assert!(!results.is_empty(), "Expected results from linting");
+
+    Ok(())
+}
+
+/// Compound-extension rules must be selected deterministically: the longest
+/// matching suffix wins, regardless of rule map iteration order.
+#[test]
+fn test_compound_extension_rule_precedence_is_deterministic() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let root = temp_dir.path();
+    std::fs::write(root.join("Button.test.tsx"), "// test file")?;
+
+    let config_content = r#"
+lintp:
+  config:
+    .tsx: "false"
+    .test.tsx: "true"
+  ignore: []
+"#;
+    let config: Config = serde_yaml::from_str(config_content)?;
+    let parsed_config = ParsedConfig {
+        raw: config,
+        parsed_matchers: HashMap::new(),
+        parsed_rules: HashMap::new(),
+    };
+
+    // Before the longest-suffix fix the winner depended on HashMap iteration
+    // order, so a single run could pass or fail at random. Run repeatedly to
+    // guard against that nondeterminism creeping back in.
+    for _ in 0..20 {
+        let results = run_lint(root, &parsed_config, false)?;
+        assert_eq!(results.len(), 1, "Expected exactly one linted file");
+        assert!(
+            matches!(results[0], LintResult::Success(_)),
+            "The .test.tsx rule (true) must win over the .tsx rule (false)"
+        );
+    }
+
+    Ok(())
+}
+
+/// The documented lambda syntax — any(siblings("*"), endsWith($item, ".js"))
+/// with the lambda unquoted — must work end-to-end. It previously failed
+/// with "Unknown variable: item" because lambdas were evaluated eagerly.
+#[test]
+fn test_documented_lambda_syntax_works() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let root = temp_dir.path();
+    std::fs::write(root.join("app.js"), "// js")?;
+    std::fs::write(root.join("util.js"), "// js")?;
+    std::fs::write(root.join("readme.md"), "# md")?;
+
+    let config_content = r#"
+lintp:
+  custom-matchers:
+    has-js-sibling: 'any(siblings("*"), endsWith($item, ".js"))'
+    no-py-sibling: '!any(siblings("*"), endsWith($item, ".py"))'
+  config:
+    .js: "has-js-sibling && no-py-sibling"
+    .md: 'all(siblings("*.js"), matches($item, /^[a-z]+\.js$/))'
+  ignore: []
+"#;
+    let config: Config = serde_yaml::from_str(config_content)?;
+    let mut parsed_matchers = HashMap::new();
+    for (name, expr) in &config.lintp.custom_matchers {
+        parsed_matchers.insert(name.clone(), parse_expression(expr)?);
+    }
+    let parsed_config = ParsedConfig {
+        raw: config,
+        parsed_matchers,
+        parsed_rules: HashMap::new(),
+    };
+
+    let results = run_lint(root, &parsed_config, false)?;
+    assert_eq!(results.len(), 3);
+    for result in &results {
+        assert!(
+            matches!(result, LintResult::Success(_)),
+            "Expected success, got: {:?}",
+            result
+        );
+    }
+
+    Ok(())
+}
+
+/// Failure messages must name the specific conjunct(s) that failed so
+/// users don't have to bisect composed rules by hand.
+#[test]
+fn test_failure_message_explains_failed_conjunct() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let root = temp_dir.path();
+    std::fs::write(root.join("BadName.js"), "// js")?;
+
+    let config_content = r#"
+lintp:
+  custom-matchers:
+    kebab-case: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)"
+    js-file: '$EXT == "js"'
+  config:
+    .js: "kebab-case && js-file"
+  ignore: []
+"#;
+    let config: Config = serde_yaml::from_str(config_content)?;
+    let mut parsed_matchers = HashMap::new();
+    for (name, expr) in &config.lintp.custom_matchers {
+        parsed_matchers.insert(name.clone(), parse_expression(expr)?);
+    }
+    let parsed_config = ParsedConfig {
+        raw: config,
+        parsed_matchers,
+        parsed_rules: HashMap::new(),
+    };
+
+    let results = run_lint(root, &parsed_config, false)?;
+    assert_eq!(results.len(), 1);
+    match &results[0] {
+        LintResult::Failure { message, .. } => {
+            assert!(
+                message.contains("(failed: kebab-case)"),
+                "Expected the failing conjunct to be named, got: {}",
+                message
+            );
+            assert!(
+                !message.contains("js-file)"),
+                "The passing conjunct must not be reported as failed: {}",
+                message
+            );
+        }
+        other => panic!("Expected failure, got: {:?}", other),
+    }
+
+    Ok(())
+}
+
+/// Rules configured as `{rule: ..., message: ...}` report the custom
+/// message instead of the raw expression.
+#[test]
+fn test_custom_rule_message() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let root = temp_dir.path();
+    std::fs::write(root.join("badName.tsx"), "// tsx")?;
+
+    let config_content = r#"
+lintp:
+  custom-matchers:
+    PascalCase: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
+  config:
+    .tsx:
+      rule: "PascalCase"
+      message: "Component files must be PascalCase (see CONTRIBUTING.md)"
+  ignore: []
+"#;
+    let config: Config = serde_yaml::from_str(config_content)?;
+    let mut parsed_matchers = HashMap::new();
+    for (name, expr) in &config.lintp.custom_matchers {
+        parsed_matchers.insert(name.clone(), parse_expression(expr)?);
+    }
+    let parsed_config = ParsedConfig {
+        raw: config,
+        parsed_matchers,
+        parsed_rules: HashMap::new(),
+    };
+
+    let results = run_lint(root, &parsed_config, false)?;
+    assert_eq!(results.len(), 1);
+    match &results[0] {
+        LintResult::Failure { message, .. } => {
+            assert!(
+                message.contains("Component files must be PascalCase"),
+                "Expected the custom message, got: {}",
+                message
+            );
+            assert!(
+                !message.contains("Does not match rule"),
+                "Custom message should replace the default text: {}",
+                message
+            );
+        }
+        other => panic!("Expected failure, got: {:?}", other),
+    }
 
     Ok(())
 }
