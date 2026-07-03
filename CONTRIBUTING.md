@@ -62,6 +62,7 @@ This project uses [Release Please](https://github.com/googleapis/release-please)
 ### How It Works
 
 1. **Automatic PR Creation**: When you merge commits to `main`, Release Please will:
+
    - Analyze the commit messages since the last release
    - Determine the appropriate version bump (major, minor, or patch)
    - Create or update a release PR with:
@@ -70,6 +71,7 @@ This project uses [Release Please](https://github.com/googleapis/release-please)
      - Release notes
 
 2. **Version Bumping Rules**:
+
    - `fix:` commits → patch version bump (0.0.X)
    - `feat:` commits → minor version bump (0.X.0)
    - `feat!:` or `fix!:` commits (breaking changes) → major version bump (X.0.0)
@@ -82,6 +84,7 @@ This project uses [Release Please](https://github.com/googleapis/release-please)
 ### Manual Release (Emergency Only)
 
 In case the automated process fails, maintainers can trigger a manual release:
+
 1. Update version in `Cargo.toml`
 2. Create and push a tag: `git tag v0.X.Y && git push origin v0.X.Y`
 3. The release workflows will automatically trigger

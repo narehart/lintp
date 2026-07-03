@@ -226,7 +226,7 @@ matches($PATH, "*/components/*")            # Files in components directory
 
 #### `contains(haystack, needle)`
 
-Check if string contains substring or list contains item.
+Check if a string contains a substring. For list membership, use `in(item, list)` instead.
 
 ```yaml
 # String contains substring
@@ -234,9 +234,9 @@ contains($NAME, "test")                     # Filename contains "test"
 contains($PATH, "/src/")                    # Path contains "/src/"
 contains($PARENT, "components")             # Parent contains "components"
 
-# List contains item
-contains(["js", "ts", "jsx"], $EXT)         # Extension in list
-contains(siblings("*.js"), "index.js")      # Sibling list contains file
+# For list membership, use in(item, list):
+in($EXT, ["js", "ts", "jsx"])               # Extension in list
+in("index.js", siblings("*.js"))            # Sibling list contains file
 ```
 
 #### `startsWith(string, prefix)`
@@ -273,7 +273,7 @@ without(without($BASENAME, "-util"), "-helper")  # Chain removals
 
 #### `count(string_or_list)`
 
-Get length of string or list.
+Get the length of a string (in characters) or a list.
 
 ```yaml
 count($NAME)                                # Filename length

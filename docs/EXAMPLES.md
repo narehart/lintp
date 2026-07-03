@@ -104,7 +104,7 @@ lintp:
     .css: "kebab-case || PascalCase"
     .scss: "kebab-case || PascalCase"
 
-    # Config && other files
+    # Config and other files
     .json: "kebab-case"
     .md: 'kebab-case || in($BASENAME, ["README", "CHANGELOG"])'
 
@@ -371,7 +371,7 @@ lintp:
     is-doc: 'in($EXT, ["md", "mdx", "txt"])'
     doc-file: 'is-doc && (kebab-case || in($BASENAME, ["README", "CHANGELOG", "LICENSE", "CONTRIBUTING"]))'
 
-    # Image && asset validation
+    # Image and asset validation
     is-image: 'in($EXT, ["png", "jpg", "jpeg", "gif", "svg", "webp"])'
     image-file: "is-image && kebab-case"
 
