@@ -52,6 +52,7 @@ jobs:
 
       - name: Lint commits
         run: npx commitlint --from ${{ github.event.pull_request.head.sha }}~${{ github.event.pull_request.commits }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
   format:
     name: Format
     runs-on: ubuntu-latest
