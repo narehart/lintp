@@ -29,6 +29,8 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created }}
     strategy:
+      # One platform failing must not cancel the others' uploads
+      fail-fast: false
       matrix:
         include:
           - target: x86_64-pc-windows-msvc
@@ -51,11 +53,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install asdf
-        uses: asdf-vm/actions/install@v4
+      # asdf has no Windows build, so this job uses platform-native
+      # toolchain actions instead
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.82.0"
+          targets: ${{ matrix.target }}
 
-      - name: Add rust target
-        run: rustup target add ${{ matrix.target }}
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".tool-versions"
 
       - name: Install cross-compilation tools
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -81,7 +90,12 @@ jobs:
           mkdir -p release-assets
           cp "target/${{ matrix.target }}/release/${binary_name}" "release-assets/${asset_name}"
           cd release-assets
-          shasum -a 256 "${asset_name}" > "${asset_name}.sha256"
+          # macOS lacks sha256sum; Windows git-bash lacks shasum
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${asset_name}" > "${asset_name}.sha256"
+          else
+            shasum -a 256 "${asset_name}" > "${asset_name}.sha256"
+          fi
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
