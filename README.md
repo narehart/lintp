@@ -2,6 +2,8 @@
 
 A powerful file system linter that validates directory structures and file naming conventions using a custom Domain-Specific Language (DSL) defined in YAML configuration files.
 
+![lintp demo: failing files are flagged with the exact rule condition that failed, then pass after renaming](https://raw.githubusercontent.com/narehart/lintp/main/docs/demo.gif)
+
 ## Table of Contents
 
 - [Installation](#installation)
