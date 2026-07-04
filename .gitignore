@@ -77,3 +77,6 @@ docs/README.md
 
 # Platform packages built by scripts/prepare-platform-package.ts (CI only)
 npm/
+
+# Built docs site (npm run docs:build)
+_site/

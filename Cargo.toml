@@ -18,6 +18,7 @@ exclude = [
     ".vscode/",
     "bin/",
     "docs/",
+    "_site/",
     "scripts/",
     "*.ts",
     "*.mjs",

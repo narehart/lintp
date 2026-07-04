@@ -1,0 +1,317 @@
+/* lintp docs design system
+   Tokens and components from the docs-home design handoff; applied to the
+   homepage and every generated doc page. */
+
+:root {
+  /* Color tokens */
+  --bg: #fbfaf7;
+  --ink: #23211c;
+  --muted: #8d887b;
+  --body-muted: #5c584d;
+  --hairline: #cfcabb;
+  --panel-border: #e2ddd0;
+  --panel-bar: #f0ede4;
+  --pass: oklch(0.55 0.13 155);
+  --fail: oklch(0.55 0.15 25);
+
+  /* Type scale */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-body: 13.5px;
+
+  /* Spacing scale */
+  --sp-1: 14px;
+  --sp-2: 22px;
+  --sp-3: 30px;
+  --sp-4: 34px;
+  --sp-5: 48px;
+
+  --radius: 6px;
+  --col: 800px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "JetBrains Mono", monospace;
+}
+
+.page {
+  max-width: var(--col);
+  margin: 0 auto;
+  padding: 56px 32px 64px;
+  box-sizing: border-box;
+}
+
+/* ---- Masthead ---- */
+
+.masthead {
+  font-size: var(--fs-md);
+}
+.masthead strong {
+  font-weight: 800;
+}
+.masthead a {
+  color: var(--ink);
+  text-decoration: none;
+}
+.masthead a:hover {
+  border-bottom: 1px solid var(--ink);
+}
+.dim {
+  color: var(--muted);
+}
+
+.sub {
+  font-size: var(--fs-body);
+  line-height: 1.7;
+  margin: var(--sp-1) 0 0;
+  max-width: 560px;
+  color: var(--body-muted);
+}
+
+/* ---- Command blocks ---- */
+
+.cmds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: var(--sp-2) 0 0;
+}
+.cmd {
+  display: inline-block;
+  background: var(--ink);
+  color: var(--bg);
+  padding: 9px 16px;
+  font-size: var(--fs-md);
+  text-decoration: none;
+}
+.cmd-alt {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  padding: 8px 15px;
+}
+
+/* ---- Panel (demo GIF, figures) ---- */
+
+.shot {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin: var(--sp-3) 0 0;
+}
+.bar {
+  background: var(--panel-bar);
+  padding: 7px 12px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  border-bottom: 1px solid var(--panel-border);
+}
+.gif {
+  width: 100%;
+  max-width: 100%;
+  display: block;
+}
+
+/* ---- Directory tree nav ---- */
+
+.tree {
+  font-size: var(--fs-md);
+  line-height: 2;
+  margin-top: var(--sp-4);
+}
+.guide {
+  color: var(--hairline);
+}
+.tname {
+  display: inline-block;
+  min-width: 16ch;
+}
+.tlink {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 700;
+  border-bottom: 1px solid var(--hairline);
+}
+.tlink:hover {
+  border-color: var(--ink);
+}
+.note {
+  color: var(--muted);
+}
+
+/* ---- Footer ---- */
+
+.foot {
+  margin-top: var(--sp-5);
+  padding-top: 18px;
+  border-top: 1px solid var(--panel-border);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.flink {
+  color: var(--body-muted);
+  text-decoration: none;
+  border-bottom: 1px solid var(--hairline);
+}
+.flink:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+/* ---- Prose (generated doc pages) ---- */
+
+.prose {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-body);
+  line-height: 1.7;
+}
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  font-weight: 800;
+  line-height: 1.4;
+}
+.prose h1 {
+  font-size: 16px;
+  margin: 0 0 var(--sp-1);
+}
+.prose h2 {
+  font-size: 14px;
+  margin: var(--sp-4) 0 var(--sp-1);
+  padding-top: var(--sp-1);
+  border-top: 1px solid var(--panel-border);
+}
+.prose h3 {
+  font-size: var(--fs-md);
+  margin: var(--sp-2) 0 10px;
+}
+.prose h4 {
+  font-size: var(--fs-md);
+  margin: var(--sp-2) 0 8px;
+  font-weight: 700;
+}
+/* Markdown-style heading markers in the guide color */
+.prose h1::before {
+  content: "# ";
+  color: var(--hairline);
+}
+.prose h2::before {
+  content: "## ";
+  color: var(--hairline);
+}
+.prose h3::before {
+  content: "### ";
+  color: var(--hairline);
+}
+.prose h4::before {
+  content: "#### ";
+  color: var(--hairline);
+}
+
+.prose p {
+  margin: 0 0 var(--sp-1);
+}
+.prose a {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px solid var(--hairline);
+}
+.prose a:hover {
+  border-color: var(--ink);
+}
+
+.prose code {
+  background: var(--panel-bar);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.95em;
+}
+.prose pre {
+  background: var(--panel-bar);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 14px;
+  overflow-x: auto;
+  font-size: 12.5px;
+  line-height: 1.6;
+  margin: 0 0 var(--sp-1);
+}
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.prose ul,
+.prose ol {
+  margin: 0 0 var(--sp-1);
+  padding-left: 3ch;
+}
+.prose li {
+  margin: 2px 0;
+}
+
+.prose table {
+  border-collapse: collapse;
+  font-size: 12.5px;
+  margin: 0 0 var(--sp-1);
+  display: block;
+  overflow-x: auto;
+}
+.prose th,
+.prose td {
+  border: 1px solid var(--panel-border);
+  padding: 5px 12px;
+  text-align: left;
+}
+.prose th {
+  background: var(--panel-bar);
+  font-weight: 700;
+}
+
+.prose blockquote {
+  margin: 0 0 var(--sp-1);
+  padding-left: 14px;
+  border-left: 2px solid var(--hairline);
+  color: var(--body-muted);
+}
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--panel-border);
+  margin: var(--sp-2) 0;
+}
+.prose img {
+  max-width: 100%;
+}
+
+/* Terminal output accents (reserved tokens from the handoff) */
+.prose .pass {
+  color: var(--pass);
+}
+.prose .fail {
+  color: var(--fail);
+}
+
+/* ---- Responsive ---- */
+
+@media (max-width: 480px) {
+  .page {
+    padding: 36px 20px 48px;
+  }
+  .note {
+    display: none;
+  }
+  .tname {
+    min-width: 0;
+  }
+}

@@ -7,6 +7,7 @@ on:
     paths:
       - "docs/**"
       - "README.md"
+      - "scripts/build-docs.ts"
       - ".github/workflows/deploy-docs.yml"
   workflow_dispatch:
 
@@ -27,26 +28,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Copy README into docs
-        # index.html links to README.html; rewrite its docs/ links since the
-        # copy lives inside docs/ itself. Jekyll's optional-front-matter
-        # plugin deliberately skips README.md, so explicit front matter is
-        # required for it to be converted to HTML at all.
-        run: |
-          printf -- '---\ntitle: Getting Started\n---\n\n' > docs/README.md
-          sed -e 's#(docs/#(#g' README.md >> docs/README.md
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".tool-versions"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Same script as local sign-off (npm run docs:build) — what you
+      # previewed is byte-for-byte what deploys
+      - name: Build docs site
+        run: npx tsx scripts/build-docs.ts
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@v1
-        with:
-          source: ./docs
-          destination: ./_site
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
 
   deploy:
     needs: build
