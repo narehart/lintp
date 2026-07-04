@@ -55,6 +55,19 @@ You have two options for creating commits:
 
 If your commit message doesn't follow the convention, the commit will be rejected with helpful error messages.
 
+## Docs Site
+
+The docs site (https://narehart.github.io/lintp/) is built by `scripts/build-docs.ts` — the same script locally and in CI, so what you preview is byte-for-byte what deploys. Sources are the repo README plus the markdown files in `docs/`; the design system (tokens and components) lives in `docs/assets/docs.css`.
+
+To preview changes for sign-off before merging:
+
+```bash
+npm run docs:build     # renders everything into _site/ (gitignored)
+npm run docs:preview   # serves it at http://localhost:8931
+```
+
+The site deploys automatically on merge to `main` when docs sources change.
+
 ## Release Process
 
 This project uses [Release Please](https://github.com/googleapis/release-please) to automate releases. The release process is fully automated based on conventional commit messages:

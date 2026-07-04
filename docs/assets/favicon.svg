@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Mini terminal panel from the design system: --term-bg + --term-pass -->
+  <rect width="32" height="32" rx="6" fill="#1e1d2b" />
+  <polyline
+    points="8,17 13.5,22.5 24,10.5"
+    fill="none"
+    stroke="#add2b1"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

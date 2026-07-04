@@ -2,7 +2,7 @@
 
 This document provides practical, real-world examples of lintp configurations for different project types and scenarios.
 
-## Table of Contents
+## Table of Contents <!-- site:skip -->
 
 - [Basic Examples](#basic-examples)
 - [Framework-Specific Examples](#framework-specific-examples)
@@ -529,7 +529,7 @@ lintp:
 
 These examples demonstrate various real-world scenarios and how to configure lintp for different project types and requirements.
 
-## Cross-References
+## Cross-References <!-- site:skip -->
 
 - **Getting Started**: See [README.md](../README.md#quick-start) for basic setup and usage
 - **Complete Language Reference**: See [DSL_REFERENCE.md](DSL_REFERENCE.md) for all operators and functions

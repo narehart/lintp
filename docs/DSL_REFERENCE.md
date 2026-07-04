@@ -533,7 +533,7 @@ rule: '$EXT == "js" && count(siblings("*")) < 100'
 rule: 'count(siblings("*")) < 100 && $EXT == "js"'
 ```
 
-## Cross-References
+## Cross-References <!-- site:skip -->
 
 - **Getting Started**: See [README.md](../README.md#quick-start) for basic usage examples
 - **Common Patterns**: See [COMMON_PATTERNS.md](COMMON_PATTERNS.md) for reusable validation patterns
