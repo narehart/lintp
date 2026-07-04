@@ -1,6 +1,6 @@
 [package]
 name = "lintp"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 description = "File system linter with a custom DSL for directory structure validation"
 authors = ["Nico Arehart"]
