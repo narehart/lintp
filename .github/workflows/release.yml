@@ -17,34 +17,39 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
       version: ${{ steps.release.outputs.version }}
     steps:
-      # The GitHub App token is load-bearing twice over: PRs created by
-      # GITHUB_TOKEN never trigger pull_request workflows (release PRs
-      # would sit with checks "Expected" forever), and auto-merge runs as
-      # whoever enabled it — a GITHUB_TOKEN merge would not re-trigger
-      # this workflow, so the release itself would silently never happen.
+      # No release-type/extra-files inputs: passing release-type bypasses
+      # release-please-config.json, whose json updater is what keeps
+      # package.json's version in sync (extra-files is not a v4 input).
+      # GITHUB_TOKEN here: the App token lacks the issues:write permission
+      # release-please needs for PR labels ("Resource not accessible by
+      # integration").
+      - uses: google-github-actions/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Generate app token
+        if: ${{ steps.release.outputs.pr }}
         id: app-token
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      # No release-type/extra-files inputs: passing release-type bypasses
-      # release-please-config.json, whose json updater is what keeps
-      # package.json's version in sync (extra-files is not a v4 input)
-      - uses: google-github-actions/release-please-action@v4
-        id: release
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-
-      - name: Enable auto-merge on the release PR
+      # The App token is load-bearing: events from GITHUB_TOKEN never
+      # trigger workflows, so (a) the freshly created/updated release PR
+      # gets a close/reopen from the App to start its required checks,
+      # and (b) auto-merge is enabled by the App so the eventual merge
+      # push re-triggers this workflow to run the actual release.
+      - name: Kick checks and enable auto-merge on the release PR
         if: ${{ steps.release.outputs.pr }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: >
-          gh pr merge --merge --auto
-          "${{ fromJSON(steps.release.outputs.pr).number }}"
-          --repo ${{ github.repository }}
+          PR: ${{ fromJSON(steps.release.outputs.pr).number }}
+        run: |
+          gh pr close "$PR" --repo ${{ github.repository }}
+          gh pr reopen "$PR" --repo ${{ github.repository }}
+          gh pr merge --merge --auto "$PR" --repo ${{ github.repository }}
 
   build-binaries:
     needs: release-please
