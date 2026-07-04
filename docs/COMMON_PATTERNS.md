@@ -132,7 +132,7 @@ lintp:
     my-custom-rule: "kebab-case && js-file"
 ```
 
-## Cross-References
+## Cross-References <!-- site:skip -->
 
 - **Basic Usage**: See [README.md](../README.md#quick-start)
 - **Complete Function Reference**: See [DSL_REFERENCE.md](DSL_REFERENCE.md#functions)
