@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.2 (2026-07-04)
+
+## What's Changed
+* fix: raise the rust floor to 1.85 and create release prs with the app token by @narehart in https://github.com/narehart/lintp/pull/43
+* fix: kick release pr checks via app close/reopen by @narehart in https://github.com/narehart/lintp/pull/44
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.3.1...v0.3.2
+
 ## 0.3.1 (2026-07-04)
 
 ## What's Changed
