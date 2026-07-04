@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1 (2026-07-04)
+
+## What's Changed
+* fix: remove the prose measure cap so text aligns with panels by @narehart in https://github.com/narehart/lintp/pull/40
+* ci: auto-merge release-please prs once checks pass by @narehart in https://github.com/narehart/lintp/pull/42
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.3.0...v0.3.1
+
 ## 0.3.0 (2026-07-04)
 
 ## What's Changed
