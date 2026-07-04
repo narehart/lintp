@@ -21,7 +21,8 @@ npm install -g lintp-cli
 ### From crates.io
 
 ```bash title="shell — install via cargo"
-cargo install lintp   # compiles with your Rust toolchain (1.82+)
+cargo install lintp            # compiles with your Rust toolchain (1.85+)
+cargo install lintp --locked   # exact tested dependency versions
 ```
 
 ### From source

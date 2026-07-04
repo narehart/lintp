@@ -5,6 +5,7 @@ edition = "2021"
 description = "File system linter with a custom DSL for directory structure validation"
 authors = ["Nico Arehart"]
 license = "MIT"
+rust-version = "1.85"
 repository = "https://github.com/narehart/lintp"
 homepage = "https://narehart.github.io/lintp/"
 documentation = "https://narehart.github.io/lintp/"
