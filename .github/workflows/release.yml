@@ -17,39 +17,42 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
       version: ${{ steps.release.outputs.version }}
     steps:
-      # No release-type/extra-files inputs: passing release-type bypasses
-      # release-please-config.json, whose json updater is what keeps
-      # package.json's version in sync (extra-files is not a v4 input).
-      # GITHUB_TOKEN here: the App token lacks the issues:write permission
-      # release-please needs for PR labels ("Resource not accessible by
-      # integration").
-      - uses: google-github-actions/release-please-action@v4
-        id: release
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
+      # Generate the App token BEFORE release-please so the release PR is
+      # authored by the App, not github-actions[bot]. PRs opened via the
+      # default GITHUB_TOKEN are treated as first-time-contributor PRs: their
+      # required checks demand manual maintainer approval, and the events they
+      # emit never trigger workflows. An App (installed with write access) is a
+      # recognized member, so its PRs run checks with no approval and their
+      # events trigger workflows normally — which is why no close/reopen kick
+      # is needed below.
+      #
+      # Requires the App to have Contents, Pull requests, AND Issues set to
+      # Read and write. Issues:write is what release-please uses for its
+      # "autorelease: *" PR labels; without it release-please fails with
+      # "Resource not accessible by integration".
       - name: Generate app token
-        if: ${{ steps.release.outputs.pr }}
         id: app-token
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      # The App token is load-bearing: events from GITHUB_TOKEN never
-      # trigger workflows, so (a) the freshly created/updated release PR
-      # gets a close/reopen from the App to start its required checks,
-      # and (b) auto-merge is enabled by the App so the eventual merge
-      # push re-triggers this workflow to run the actual release.
-      - name: Kick checks and enable auto-merge on the release PR
+      # No release-type/extra-files inputs: passing release-type bypasses
+      # release-please-config.json, whose json updater is what keeps
+      # package.json's version in sync (extra-files is not a v4 input).
+      - uses: google-github-actions/release-please-action@v4
+        id: release
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      # Auto-merge so the release PR merges itself once the required checks go
+      # green; the merge push then re-triggers this workflow to cut the release.
+      - name: Enable auto-merge on the release PR
         if: ${{ steps.release.outputs.pr }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR: ${{ fromJSON(steps.release.outputs.pr).number }}
-        run: |
-          gh pr close "$PR" --repo ${{ github.repository }}
-          gh pr reopen "$PR" --repo ${{ github.repository }}
-          gh pr merge --merge --auto "$PR" --repo ${{ github.repository }}
+        run: gh pr merge --merge --auto "$PR" --repo ${{ github.repository }}
 
   build-binaries:
     needs: release-please
