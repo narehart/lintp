@@ -145,13 +145,15 @@ body {
   color: var(--ink);
 }
 
-/* Inline code chip */
+/* Inline code chip — atomic: code tokens never break internally
+   (hyphens in names like custom-matchers are not break opportunities) */
 .ic {
   background: var(--panel-bar);
   color: var(--ink);
   padding: var(--pad-chip);
   border-radius: var(--radius-sm);
   font-size: var(--fs-code);
+  white-space: nowrap;
 }
 
 /* ---- Headings ---- */
@@ -252,6 +254,7 @@ body {
   padding: var(--btn-pad-y) var(--btn-pad-x);
   font-size: var(--fs-md);
   text-decoration: none;
+  white-space: nowrap; /* commands are atomic */
 }
 .cmd-alt {
   background: transparent;
@@ -302,6 +305,7 @@ body {
   text-decoration: none;
   font-weight: var(--fw-bold);
   border-bottom: var(--border-w) solid var(--hairline);
+  white-space: nowrap; /* tree names are atomic */
 }
 .tlink:hover {
   border-color: var(--ink);

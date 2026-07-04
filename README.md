@@ -165,7 +165,7 @@ Exit code `0` when everything passes, `1` on any violation or configuration erro
 
 - **Start simple.** One kebab-case matcher and two config keys; add complexity as conventions solidify.
 - **Name matchers descriptively.** `react-component`, not `rule1`.
-- **Compose.** Build base patterns (`kebab-case`, `js-file`), then combine: `js-utility: "kebab-case && js-file"`.
+- **Compose.** Build base patterns (`kebab-case`, `js-file`), then combine them: `"kebab-case && js-file"`.
 - **Test your rules.** Touch a good file and a bad file, run `lintp --verbose`, verify both outcomes.
 - **Ignore aggressively.** `node_modules`, build output, generated files — specific names beat broad wildcards for speed.
 - **Keep checks local.** `siblings()`/`children()` are cheap; `find(".", "**/*")` re-scans the project for every file.
