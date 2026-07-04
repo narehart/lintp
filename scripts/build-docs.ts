@@ -63,7 +63,6 @@ const MD_PAGES: MdPage[] = [
 ];
 
 const HOMEPAGE = "docs/index.html";
-const STATIC_FILES = ["docs/demo.gif"];
 const STATIC_DIRS = ["docs/assets"];
 
 /** GitHub-compatible heading slug, so intra-page anchors keep working */
@@ -344,14 +343,6 @@ export function buildDocs(outDir: string): string[] {
     homepage.replace("<!-- nav-tree -->", navTree())
   );
   written.push("index.html");
-
-  for (const file of STATIC_FILES) {
-    fs.copyFileSync(
-      path.join(ROOT, file),
-      path.join(outDir, path.basename(file))
-    );
-    written.push(path.basename(file));
-  }
 
   for (const dir of STATIC_DIRS) {
     fs.cpSync(path.join(ROOT, dir), path.join(outDir, path.basename(dir)), {

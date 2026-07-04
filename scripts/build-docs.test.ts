@@ -136,12 +136,12 @@ describe("build-docs", () => {
         "COMMON_PATTERNS.html",
         "EXAMPLES.html",
         "index.html",
-        "demo.gif",
       ]) {
         expect(existsSync(path.join(outDir, file)), file).toBe(true);
       }
       expect(existsSync(path.join(outDir, "assets", "docs.css"))).toBe(true);
-      expect(written.length).toBeGreaterThanOrEqual(7);
+      expect(existsSync(path.join(outDir, "assets", "demo.gif"))).toBe(true);
+      expect(written.length).toBeGreaterThanOrEqual(6);
     });
 
     it("derives getting-started from the README with metadata applied", () => {

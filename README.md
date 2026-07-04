@@ -4,7 +4,7 @@ A powerful file system linter that validates directory structures and file namin
 
 <!-- site:sub Install lintp, write your first lintp.yml, and run it against a project — plus configuration, CLI flags, and troubleshooting. -->
 
-![lintp demo: failing files are flagged with the exact rule condition that failed, then pass after renaming](https://raw.githubusercontent.com/narehart/lintp/main/docs/demo.gif)
+![lintp demo: failing files are flagged with the exact rule condition that failed, then pass after renaming](https://raw.githubusercontent.com/narehart/lintp/main/docs/assets/demo.gif)
 
 ## Installation <!-- note: npm, from source -->
 
