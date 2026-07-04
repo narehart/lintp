@@ -29,8 +29,12 @@ jobs:
 
       - name: Copy README into docs
         # index.html links to README.html; rewrite its docs/ links since the
-        # copy lives inside docs/ itself
-        run: sed -e 's#(docs/#(#g' README.md > docs/README.md
+        # copy lives inside docs/ itself. Jekyll's optional-front-matter
+        # plugin deliberately skips README.md, so explicit front matter is
+        # required for it to be converted to HTML at all.
+        run: |
+          printf -- '---\ntitle: Getting Started\n---\n\n' > docs/README.md
+          sed -e 's#(docs/#(#g' README.md >> docs/README.md
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
