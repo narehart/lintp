@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 (2026-07-04)
+
+## What's Changed
+* fix: publish the npm wrapper as lintp-cli by @narehart in https://github.com/narehart/lintp/pull/36
+* docs: add cargo install instructions to readme by @narehart in https://github.com/narehart/lintp/pull/38
+* feat: redesign docs homepage and deduplicate readme by @narehart in https://github.com/narehart/lintp/pull/39
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.2.2...v0.3.0
+
 ## 0.2.2 (2026-07-04)
 
 ## What's Changed

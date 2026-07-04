@@ -1,6 +1,6 @@
 {
   "name": "lintp-cli",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "File system linter with a custom DSL for directory structure validation",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -244,8 +244,14 @@
     },
     "docs:build": {
       "command": "tsx scripts/build-docs.ts",
-      "files": ["scripts/build-docs.ts", "docs/**", "README.md"],
-      "output": ["_site/**"]
+      "files": [
+        "scripts/build-docs.ts",
+        "docs/**",
+        "README.md"
+      ],
+      "output": [
+        "_site/**"
+      ]
     },
     "sync-toml": {
       "command": "tsx scripts/sync-toml-to-package.ts",
