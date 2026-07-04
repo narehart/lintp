@@ -1,9 +1,10 @@
-/* lintp docs design system
-   Tokens and components from the docs-home design handoff; applied to the
-   homepage and every generated doc page. */
+/* lintp docs design system.
+   One set of tokens, one set of components. Hand-authored pages and the
+   markdown build (scripts/build-docs.ts) emit the same classes — nothing
+   page-specific, no one-off styles. */
 
 :root {
-  /* Color tokens */
+  /* Color */
   --bg: #fbfaf7;
   --ink: #23211c;
   --muted: #8d887b;
@@ -11,24 +12,35 @@
   --hairline: #cfcabb;
   --panel-border: #e2ddd0;
   --panel-bar: #f0ede4;
-  --pass: oklch(0.55 0.13 155);
-  --fail: oklch(0.55 0.15 25);
+
+  /* Terminal panel (matches the demo GIF theme) */
+  --term-bg: #1e1d2b;
+  --term-fg: #dee5fe;
+  --term-cmt: #777a8e;
+  --term-pass: #add2b1;
+  --term-fail: #e49cb5;
 
   /* Type scale */
   --fs-xs: 11px;
   --fs-sm: 12px;
+  --fs-code: 12.5px;
   --fs-md: 13px;
   --fs-body: 13.5px;
+  --fs-lg: 16px;
 
   /* Spacing scale */
-  --sp-1: 14px;
-  --sp-2: 22px;
-  --sp-3: 30px;
-  --sp-4: 34px;
-  --sp-5: 48px;
+  --sp-1: 12px;
+  --sp-2: 16px;
+  --sp-3: 22px;
+  --sp-4: 28px;
+  --sp-5: 30px;
+  --sp-6: 34px;
+  --sp-7: 48px;
+  --sp-8: 56px;
 
   --radius: 6px;
   --col: 800px;
+  --measure: 640px;
 }
 
 body {
@@ -41,44 +53,170 @@ body {
 .page {
   max-width: var(--col);
   margin: 0 auto;
-  padding: 56px 32px 64px;
+  padding: var(--sp-8) 32px 64px;
   box-sizing: border-box;
 }
 
-/* ---- Masthead ---- */
+/* ---- Masthead (homepage) & crumb (doc pages) ---- */
 
-.masthead {
+.masthead,
+.crumb {
   font-size: var(--fs-md);
 }
-.masthead strong {
+.masthead strong,
+.crumb a {
   font-weight: 800;
 }
-.masthead a {
+.masthead a,
+.crumb a {
   color: var(--ink);
   text-decoration: none;
 }
-.masthead a:hover {
+.masthead a:hover,
+.crumb a:hover {
   border-bottom: 1px solid var(--ink);
 }
 .dim {
   color: var(--muted);
 }
 
+/* ---- Text ---- */
+
 .sub {
   font-size: var(--fs-body);
   line-height: 1.7;
-  margin: var(--sp-1) 0 0;
-  max-width: 560px;
+  margin: 14px 0 0;
+  max-width: 620px;
   color: var(--body-muted);
 }
 
-/* ---- Command blocks ---- */
+.p {
+  font-size: var(--fs-md);
+  line-height: 1.8;
+  color: var(--body-muted);
+  max-width: var(--measure);
+  margin: var(--sp-1) 0 0;
+  text-wrap: pretty;
+}
+.p a,
+.ul a {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid var(--hairline);
+}
+.p a:hover,
+.ul a:hover {
+  border-color: var(--ink);
+}
+.p b,
+.p strong,
+.ul b,
+.ul strong {
+  color: var(--ink);
+}
+
+/* Inline code chip */
+.ic {
+  background: var(--panel-bar);
+  color: var(--ink);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: var(--fs-code);
+}
+
+/* ---- Headings ---- */
+
+.h2 {
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  margin: var(--sp-8) 0 0;
+  scroll-margin-top: 24px;
+}
+.h2 .slash {
+  color: var(--hairline);
+}
+.h3 {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  margin: var(--sp-4) 0 0;
+}
+
+/* ---- Lists ---- */
+
+.ul {
+  font-size: var(--fs-md);
+  line-height: 1.9;
+  color: var(--body-muted);
+  max-width: var(--measure);
+  margin: var(--sp-1) 0 0;
+  padding-left: 20px;
+}
+
+/* ---- Terminal code panel ---- */
+
+.cb {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin: var(--sp-2) 0 0;
+  max-width: var(--measure);
+}
+.cbar {
+  background: var(--panel-bar);
+  padding: 7px 12px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  border-bottom: 1px solid var(--panel-border);
+}
+.cbody {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: inherit;
+  font-size: var(--fs-code);
+  line-height: 1.75;
+  overflow-x: auto;
+  background: var(--term-bg);
+  color: var(--term-fg);
+}
+.cmt {
+  color: var(--term-cmt);
+}
+.pass {
+  color: var(--term-pass);
+}
+.fail {
+  color: var(--term-fail);
+}
+
+/* ---- Table ---- */
+
+.tbl {
+  border-collapse: collapse;
+  font-size: var(--fs-code);
+  margin: var(--sp-2) 0 0;
+  display: block;
+  overflow-x: auto;
+  max-width: var(--measure);
+}
+.tbl th,
+.tbl td {
+  border: 1px solid var(--panel-border);
+  padding: 5px 12px;
+  text-align: left;
+}
+.tbl th {
+  background: var(--panel-bar);
+  font-weight: 700;
+}
+
+/* ---- Command blocks (homepage) ---- */
 
 .cmds {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin: var(--sp-2) 0 0;
+  margin: var(--sp-3) 0 0;
 }
 .cmd {
   display: inline-block;
@@ -95,13 +233,13 @@ body {
   padding: 8px 15px;
 }
 
-/* ---- Panel (demo GIF, figures) ---- */
+/* ---- Media panel (demo GIF) ---- */
 
 .shot {
   border: 1px solid var(--panel-border);
   border-radius: var(--radius);
   overflow: hidden;
-  margin: var(--sp-3) 0 0;
+  margin: var(--sp-5) 0 0;
 }
 .bar {
   background: var(--panel-bar);
@@ -116,12 +254,12 @@ body {
   display: block;
 }
 
-/* ---- Directory tree nav ---- */
+/* ---- Directory tree ---- */
 
 .tree {
   font-size: var(--fs-md);
   line-height: 2;
-  margin-top: var(--sp-4);
+  margin-top: var(--sp-5);
 }
 .guide {
   color: var(--hairline);
@@ -146,7 +284,7 @@ body {
 /* ---- Footer ---- */
 
 .foot {
-  margin-top: var(--sp-5);
+  margin-top: var(--sp-8);
   padding-top: 18px;
   border-top: 1px solid var(--panel-border);
   font-size: var(--fs-sm);
@@ -164,142 +302,6 @@ body {
 .flink:hover {
   color: var(--ink);
   border-color: var(--ink);
-}
-
-/* ---- Prose (generated doc pages) ---- */
-
-.prose {
-  margin-top: var(--sp-3);
-  font-size: var(--fs-body);
-  line-height: 1.7;
-}
-.prose h1,
-.prose h2,
-.prose h3,
-.prose h4 {
-  font-weight: 800;
-  line-height: 1.4;
-}
-.prose h1 {
-  font-size: 16px;
-  margin: 0 0 var(--sp-1);
-}
-.prose h2 {
-  font-size: 14px;
-  margin: var(--sp-4) 0 var(--sp-1);
-  padding-top: var(--sp-1);
-  border-top: 1px solid var(--panel-border);
-}
-.prose h3 {
-  font-size: var(--fs-md);
-  margin: var(--sp-2) 0 10px;
-}
-.prose h4 {
-  font-size: var(--fs-md);
-  margin: var(--sp-2) 0 8px;
-  font-weight: 700;
-}
-/* Markdown-style heading markers in the guide color */
-.prose h1::before {
-  content: "# ";
-  color: var(--hairline);
-}
-.prose h2::before {
-  content: "## ";
-  color: var(--hairline);
-}
-.prose h3::before {
-  content: "### ";
-  color: var(--hairline);
-}
-.prose h4::before {
-  content: "#### ";
-  color: var(--hairline);
-}
-
-.prose p {
-  margin: 0 0 var(--sp-1);
-}
-.prose a {
-  color: var(--ink);
-  text-decoration: none;
-  font-weight: 500;
-  border-bottom: 1px solid var(--hairline);
-}
-.prose a:hover {
-  border-color: var(--ink);
-}
-
-.prose code {
-  background: var(--panel-bar);
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 0.95em;
-}
-.prose pre {
-  background: var(--panel-bar);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius);
-  padding: 14px;
-  overflow-x: auto;
-  font-size: 12.5px;
-  line-height: 1.6;
-  margin: 0 0 var(--sp-1);
-}
-.prose pre code {
-  background: none;
-  padding: 0;
-  font-size: inherit;
-}
-
-.prose ul,
-.prose ol {
-  margin: 0 0 var(--sp-1);
-  padding-left: 3ch;
-}
-.prose li {
-  margin: 2px 0;
-}
-
-.prose table {
-  border-collapse: collapse;
-  font-size: 12.5px;
-  margin: 0 0 var(--sp-1);
-  display: block;
-  overflow-x: auto;
-}
-.prose th,
-.prose td {
-  border: 1px solid var(--panel-border);
-  padding: 5px 12px;
-  text-align: left;
-}
-.prose th {
-  background: var(--panel-bar);
-  font-weight: 700;
-}
-
-.prose blockquote {
-  margin: 0 0 var(--sp-1);
-  padding-left: 14px;
-  border-left: 2px solid var(--hairline);
-  color: var(--body-muted);
-}
-.prose hr {
-  border: none;
-  border-top: 1px solid var(--panel-border);
-  margin: var(--sp-2) 0;
-}
-.prose img {
-  max-width: 100%;
-}
-
-/* Terminal output accents (reserved tokens from the handoff) */
-.prose .pass {
-  color: var(--pass);
-}
-.prose .fail {
-  color: var(--fail);
 }
 
 /* ---- Responsive ---- */

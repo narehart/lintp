@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lintp — getting-started</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/docs.css" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="crumb">
+        <a href="index.html">lintp</a
+        ><span class="dim"> / getting-started</span>
+      </div>
+      <p class="sub">
+        Install lintp, write your first lintp.yml, and run it against a project
+        — plus configuration, CLI flags, and troubleshooting.
+      </p>
+      <div class="tree">
+        <div><span class="dim">getting-started/</span></div>
+        <div>
+          <span class="guide">├── </span
+          ><a class="tlink" href="#installation">installation</a
+          ><span class="note"> # npm, from source</span>
+        </div>
+        <div>
+          <span class="guide">├── </span
+          ><a class="tlink" href="#quick-start">quick-start</a
+          ><span class="note"> # first config, first run</span>
+        </div>
+        <div>
+          <span class="guide">├── </span
+          ><a class="tlink" href="#variables">built-in-variables</a
+          ><span class="note"> # $NAME, $EXT, $PATH, $item…</span>
+        </div>
+        <div>
+          <span class="guide">├── </span
+          ><a class="tlink" href="#configuration">configuration</a
+          ><span class="note"> # rules, messages, ignore</span>
+        </div>
+        <div>
+          <span class="guide">├── </span
+          ><a class="tlink" href="#cli">cli-reference</a
+          ><span class="note"> # flags, exit codes, output</span>
+        </div>
+        <div>
+          <span class="guide">├── </span
+          ><a class="tlink" href="#best-practices">best-practices</a
+          ><span class="note"> # composing rules that scale</span>
+        </div>
+        <div>
+          <span class="guide">└── </span
+          ><a class="tlink" href="#troubleshooting">troubleshooting</a
+          ><span class="note"> # common errors, debug tips</span>
+        </div>
+      </div>
+
+      <h2 class="h2" id="installation">
+        installation<span class="slash">/</span>
+      </h2>
+      <p class="p">
+        npm ships a prebuilt binary for macOS, Linux, and Windows (x64/arm64)
+        via <span class="ic">optionalDependencies</span>. If no prebuilt package
+        matches your platform, the launcher falls back to a checksum-verified
+        binary from the GitHub release. The npm package is named
+        <span class="ic">lintp-cli</span> (npm reserves the bare name) — the
+        installed command is <span class="ic">lintp</span>.
+      </p>
+      <div class="cb">
+        <div class="cbar">shell — install via npm</div>
+        <pre class="cbody"><span class="cmt"># run without installing</span>
+npx lintp-cli
+
+<span class="cmt"># or install globally — the command is `lintp`</span>
+npm install -g lintp-cli</pre>
+      </div>
+      <div class="h3">from crates.io</div>
+      <div class="cb">
+        <div class="cbar">shell — install via cargo</div>
+        <pre
+          class="cbody"
+        >cargo install lintp   <span class="cmt"># compiles with your Rust toolchain (1.82+)</span></pre>
+      </div>
+      <div class="h3">from source</div>
+      <p class="p">
+        The project uses <a href="https://asdf-vm.com/">asdf</a> to pin Node.js
+        and Rust versions.
+      </p>
+      <div class="cb">
+        <div class="cbar">shell — build from source</div>
+        <pre class="cbody">git clone https://github.com/narehart/lintp.git
+cd lintp
+asdf install          <span class="cmt"># required Node.js + Rust versions</span>
+cargo build --release
+./target/release/lintp --help</pre>
+      </div>
+
+      <h2 class="h2" id="quick-start">
+        quick-start<span class="slash">/</span>
+      </h2>
+      <p class="p">
+        Create <span class="ic">lintp.yml</span> in your project root. Define
+        reusable patterns under <span class="ic">custom-matchers</span>, then
+        assign a rule to each file type under <span class="ic">config</span>.
+      </p>
+      <div class="cb">
+        <div class="cbar">lintp.yml</div>
+        <pre class="cbody">lintp:
+  <span class="cmt"># define reusable patterns</span>
+  custom-matchers:
+    kebab-case: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)"
+    PascalCase: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
+    js-file:    '$EXT == "js"'
+    ts-file:    '$EXT == "ts"'
+
+  <span class="cmt"># rules per file type</span>
+  config:
+    .js:  "kebab-case &amp;&amp; js-file"
+    .ts:  "PascalCase &amp;&amp; ts-file"
+    .dir: "kebab-case || PascalCase"
+
+  ignore:
+    - node_modules
+    - .git
+    - dist</pre>
+      </div>
+      <p class="p">
+        Run it. Every file and directory is checked against the longest-matching
+        suffix rule; failures name the exact condition that failed.
+      </p>
+      <div class="cb">
+        <div class="cbar">shell — first run</div>
+        <pre class="cbody">$ lintp
+<span class="pass">✓ ./src/utils.js</span>
+<span class="pass">✓ ./src/UserManager.ts</span>
+<span class="fail">✗ ./src/badFile.js - .js - Does not match rule: kebab-case &amp;&amp; js-file (failed: kebab-case)</span>
+<span class="pass">✓ ./tests/user-tests.js</span>
+Some files or directories do not match the configured rules.</pre>
+      </div>
+      <p class="p">
+        Rules combine <b>variables</b> ($NAME, $EXT…),
+        <b>operators</b> (&amp;&amp;, ||, !, ==…), <b>functions</b> (matches,
+        contains, startsWith…) and <b>collections</b> (siblings, children,
+        find). The complete language lives in the
+        <a href="DSL_REFERENCE.html">dsl-reference</a>; reusable recipes in
+        <a href="COMMON_PATTERNS.html">common-patterns</a>.
+      </p>
+
+      <h2 class="h2" id="variables">
+        built-in-variables<span class="slash">/</span>
+      </h2>
+      <p class="p">
+        Every DSL expression has access to the file being checked:
+      </p>
+      <div class="cb">
+        <div class="cbar">variables — file &amp; context</div>
+        <pre
+          class="cbody"
+        >$NAME      <span class="cmt"># full filename incl. extension   "index.test.js"</span>
+$BASENAME  <span class="cmt"># filename without extension      "index.test"</span>
+$EXT       <span class="cmt"># extension without the dot       "js"</span>
+$PATH      <span class="cmt"># full file path                  "./src/index.test.js"</span>
+$PARENT    <span class="cmt"># parent directory path           "./src"</span>
+$item      <span class="cmt"># current item inside any(), all(), map(), filter()</span></pre>
+      </div>
+      <div class="cb">
+        <div class="cbar">lintp.yml — variables in matchers</div>
+        <pre class="cbody">
+custom-matchers:
+  js-file:        '$EXT == "js"'
+  in-src:         'contains($PATH, "/src/")'
+  has-js-sibling: 'any(siblings("*"), endsWith($item, ".js"))'</pre
+        >
+      </div>
+
+      <h2 class="h2" id="configuration">
+        configuration<span class="slash">/</span>
+      </h2>
+      <p class="p">
+        Rule keys are <b>suffix patterns</b>, not just extensions: a file
+        matches every key its path ends with, and the longest matching suffix
+        wins. <span class="ic">Button.test.tsx</span> matches both
+        <span class="ic">.tsx</span> and <span class="ic">.test.tsx</span>, and
+        the <span class="ic">.test.tsx</span> rule applies.
+        <span class="ic">.*</span> applies only when no other key matches;
+        <span class="ic">.dir</span> targets directories.
+      </p>
+      <div class="cb">
+        <div class="cbar">lintp.yml — full structure</div>
+        <pre class="cbody">lintp:
+  custom-matchers:      <span class="cmt"># reusable pattern definitions</span>
+    pattern-name: "DSL expression"
+  config:               <span class="cmt"># suffix pattern → rule</span>
+    .test.js: "test-file-naming"
+    .js:      "kebab-case"
+    .dir:     "kebab-case || PascalCase"
+    .*:       "basic-naming-rules"
+  ignore:               <span class="cmt"># glob patterns to skip</span>
+    - node_modules
+    - "build/**"
+    - "*.tmp"</pre>
+      </div>
+      <div class="h3">custom failure messages</div>
+      <p class="p">
+        Any rule can be a map with a <span class="ic">message</span> that
+        replaces the raw expression in failure output — point teammates at your
+        conventions doc instead of a regex.
+      </p>
+      <div class="cb">
+        <div class="cbar">lintp.yml — custom message</div>
+        <pre class="cbody">config:
+  .tsx:
+    rule: "component-file"
+    message: "Components must be PascalCase (see CONTRIBUTING.md)"
+
+<span class="fail">✗ ./src/badName.tsx - .tsx - Components must be PascalCase (see CONTRIBUTING.md)</span></pre>
+      </div>
+
+      <h2 class="h2" id="cli">cli-reference<span class="slash">/</span></h2>
+      <div class="cb">
+        <div class="cbar">shell — usage</div>
+        <pre
+          class="cbody"
+        >lintp                          <span class="cmt"># lint cwd with ./lintp.yml</span>
+lintp /path/to/project         <span class="cmt"># lint a specific directory</span>
+lintp --config custom.yml      <span class="cmt"># custom config file</span>
+lintp --verbose                <span class="cmt"># show every file checked</span></pre>
+      </div>
+      <p class="p">
+        Exit code <span class="ic">0</span> when everything passes,
+        <span class="ic">1</span> on any violation or configuration error — a
+        one-line CI gate. When a rule is a chain of
+        <span class="ic">&amp;&amp;</span> conditions, the failing condition(s)
+        are listed in the <span class="ic">(failed: …)</span> suffix so you
+        don't have to bisect composed rules by hand.
+      </p>
+
+      <h2 class="h2" id="best-practices">
+        best-practices<span class="slash">/</span>
+      </h2>
+      <ul class="ul">
+        <li>
+          <b>Start simple.</b> One kebab-case matcher and two config keys; add
+          complexity as conventions solidify.
+        </li>
+        <li>
+          <b>Name matchers descriptively.</b>
+          <span class="ic">react-component</span>, not
+          <span class="ic">rule1</span>.
+        </li>
+        <li>
+          <b>Compose.</b> Build base patterns (<span class="ic">kebab-case</span
+          >, <span class="ic">js-file</span>), then combine:
+          <span class="ic">js-utility: "kebab-case &amp;&amp; js-file"</span>.
+        </li>
+        <li>
+          <b>Test your rules.</b> Touch a good file and a bad file, run
+          <span class="ic">lintp --verbose</span>, verify both outcomes.
+        </li>
+        <li>
+          <b>Ignore aggressively.</b> <span class="ic">node_modules</span>,
+          build output, generated files — specific names beat broad wildcards
+          for speed.
+        </li>
+        <li>
+          <b>Keep checks local.</b> <span class="ic">siblings()</span>/<span
+            class="ic"
+            >children()</span
+          >
+          are cheap; <span class="ic">find(".", "**/*")</span> re-scans the
+          project for every file.
+        </li>
+      </ul>
+
+      <h2 class="h2" id="troubleshooting">
+        troubleshooting<span class="slash">/</span>
+      </h2>
+      <div class="cb">
+        <div class="cbar">common errors — cause → fix</div>
+        <pre class="cbody"><span class="fail">No config file found
+</span><span class="cmt">  → create lintp.yml or pass --config path/to/config.yml
+
+</span><span class="fail">Invalid YAML in config file: expected ':' at line 5
+</span><span class="cmt">  → quote DSL expressions:  rule: '$NAME == "test"'
+
+</span><span class="fail">Failed to parse rule: kebab-case &amp;&amp; js file
+</span><span class="cmt">  → DSL syntax error; the matcher name is missing its hyphen
+
+</span><span class="fail">Unknown matcher 'keba-case' referenced by rule '.js'
+</span><span class="cmt">  → define the matcher under custom-matchers first (checked at startup)
+
+</span><span class="fail">Circular reference detected: rule-a
+</span><span class="cmt">  → matchers may not reference each other in a cycle</span></pre>
+      </div>
+      <p class="p">
+        Debugging a rule: run with <span class="ic">--verbose</span>, read the
+        <span class="ic">(failed: …)</span> suffix first, and test expressions
+        in isolation with a minimal single-rule config.
+      </p>
+
+      <div class="tree" style="margin-top: 56px">
+        <div><span class="dim">continue/</span></div>
+        <div>
+          <span class="guide">├── </span
+          ><a class="tlink" href="DSL_REFERENCE.html">dsl-reference</a
+          ><span class="note"> # every operator, variable, function</span>
+        </div>
+        <div>
+          <span class="guide">├── </span
+          ><a class="tlink" href="COMMON_PATTERNS.html">common-patterns</a
+          ><span class="note"> # reusable naming &amp; structure rules</span>
+        </div>
+        <div>
+          <span class="guide">└── </span
+          ><a class="tlink" href="EXAMPLES.html">examples</a
+          ><span class="note"> # React, Node API, monorepo configs</span>
+        </div>
+      </div>
+      <div class="foot">
+        <span>MIT License</span>
+        <a class="flink" href="https://github.com/narehart/lintp"
+          >github.com/narehart/lintp</a
+        >
+      </div>
+    </div>
+  </body>
+</html>
