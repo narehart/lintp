@@ -43,14 +43,25 @@
         max-width: 560px;
         color: #5c584d;
       }
+      .cmds {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 22px 0 0;
+      }
       .cmd {
         display: inline-block;
         background: #23211c;
         color: #fbfaf7;
         padding: 9px 16px;
         font-size: 13px;
-        margin: 22px 0 0;
         text-decoration: none;
+      }
+      .cmd-alt {
+        background: transparent;
+        color: #23211c;
+        border: 1px solid #23211c;
+        padding: 8px 15px;
       }
       .shot {
         border: 1px solid #e2ddd0;
@@ -136,9 +147,14 @@
         Validate directory structure and file naming with a DSL you define in
         YAML. Written in Rust.
       </p>
-      <a class="cmd" href="https://www.npmjs.com/package/lintp-cli"
-        >$ npx lintp-cli</a
-      >
+      <div class="cmds">
+        <a class="cmd" href="https://www.npmjs.com/package/lintp-cli"
+          >$ npx lintp-cli</a
+        >
+        <a class="cmd cmd-alt" href="https://crates.io/crates/lintp"
+          >$ cargo install lintp</a
+        >
+      </div>
       <div class="shot">
         <div class="bar">demo.gif — flagged, renamed, passing</div>
         <img
