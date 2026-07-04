@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 (2026-07-04)
+
+## What's Changed
+* feat: dogfood lintp on its own repo in ci by @narehart in https://github.com/narehart/lintp/pull/49
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.3.3...v0.4.0
+
 ## 0.3.3 (2026-07-04)
 
 ## What's Changed
