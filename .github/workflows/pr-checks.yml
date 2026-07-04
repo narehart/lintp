@@ -133,3 +133,20 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  file-structure:
+    name: File Structure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".tool-versions"
+
+      # Dogfood: lintp lints its own repo against lintp.yml. @latest is
+      # deliberate — every release immediately checks itself here.
+      - name: Lint file structure with lintp
+        run: npx --yes lintp-cli@latest

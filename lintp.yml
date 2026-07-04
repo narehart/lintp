@@ -1,0 +1,46 @@
+lintp:
+  custom-matchers:
+    snake-case: "matches($BASENAME, /^[a-z0-9]+(?:_[a-z0-9]+)*$/)"
+    kebab-case: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)"
+    upper-snake: "matches($BASENAME, /^[A-Z0-9]+(?:_[A-Z0-9]+)*$/)"
+    kebab-test: 'matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*\.test$/)'
+
+  config:
+    .rs:
+      rule: "snake-case"
+      message: "Rust sources are snake_case so filenames read as the module paths they become"
+    .pest:
+      rule: "snake-case"
+      message: "Grammar files use the same snake_case as the Rust modules that include them"
+    .test.ts:
+      rule: "kebab-test"
+      message: "TypeScript tests are <name>.test.ts, named after the kebab-case file they test"
+    .config.ts:
+      rule: "true" # tool-mandated names (vitest.config.ts, commitlint.config.ts)
+    .ts:
+      rule: "kebab-case"
+      message: "TypeScript files are kebab-case — capitals invite cross-platform casing bugs"
+    .md:
+      rule: "kebab-case || upper-snake"
+      message: "Markdown is kebab-case, except UPPER_SNAKE repo meta docs (README, docs/DSL_REFERENCE)"
+    .html:
+      rule: "kebab-case"
+      message: "Site pages are kebab-case — they become the public URLs"
+    .dir:
+      rule: "kebab-case"
+      message: "Directories are short kebab-case words"
+
+  ignore:
+    - node_modules
+    - target
+    - dist
+    - _site
+    - coverage
+    - bin
+    - .git
+    - .github
+    - .husky
+    - .vscode
+    - .wireit
+    - .claude
+    - .DS_Store
