@@ -44,19 +44,19 @@ const MD_PAGES: MdPage[] = [
   },
   {
     src: "docs/DSL_REFERENCE.md",
-    out: "DSL_REFERENCE.html",
+    out: "dsl-reference.html",
     name: "dsl-reference",
     note: "# every operator, variable, function",
   },
   {
     src: "docs/COMMON_PATTERNS.md",
-    out: "COMMON_PATTERNS.html",
+    out: "common-patterns.html",
     name: "common-patterns",
     note: "# reusable naming & structure rules",
   },
   {
     src: "docs/EXAMPLES.md",
-    out: "EXAMPLES.html",
+    out: "examples.html",
     name: "examples",
     note: "# React, Node API, monorepo configs",
   },
@@ -76,11 +76,18 @@ export function slugify(text: string): string {
     .replace(/ +/g, "-");
 }
 
-/** Rewrite repo-relative markdown links to their built pages */
+/** Rewrite repo-relative markdown links to their built (kebab-case) pages */
 export function rewriteLinks(md: string): string {
-  return md
-    .replace(/\((\.\.\/)?README\.md(#[\w-]+)?\)/g, "(getting-started.html$2)")
-    .replace(/\((\.\/)?([\w-]+)\.md(#[\w-]+)?\)/g, "($2.html$3)");
+  const outFor = (name: string): string => {
+    const page = MD_PAGES.find(
+      (p) => p.src.endsWith(`/${name}.md`) || p.src === `${name}.md`
+    );
+    return page ? page.out : `${name.toLowerCase().replace(/_/g, "-")}.html`;
+  };
+  return md.replace(
+    /\((?:\.\.\/|\.\/|docs\/)?([\w-]+)\.md(#[\w-]+)?\)/g,
+    (_, name, hash) => `(${outFor(name)}${hash ?? ""})`
+  );
 }
 
 const ESCAPES: Record<string, string> = {

@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import path from "path";
 import {
@@ -26,7 +26,7 @@ describe("build-docs", () => {
       const md =
         "see [gs](../README.md#quick-start) and [ex](EXAMPLES.md#react)";
       expect(rewriteLinks(md)).toBe(
-        "see [gs](getting-started.html#quick-start) and [ex](EXAMPLES.html#react)"
+        "see [gs](getting-started.html#quick-start) and [ex](examples.html#react)"
       );
     });
 
@@ -132,9 +132,9 @@ describe("build-docs", () => {
 
       for (const file of [
         "getting-started.html",
-        "DSL_REFERENCE.html",
-        "COMMON_PATTERNS.html",
-        "EXAMPLES.html",
+        "dsl-reference.html",
+        "common-patterns.html",
+        "examples.html",
         "index.html",
       ]) {
         expect(existsSync(path.join(outDir, file)), file).toBe(true);
@@ -163,9 +163,9 @@ describe("build-docs", () => {
       expect(html).not.toContain("<!-- nav-tree -->");
       for (const link of [
         "getting-started.html",
-        "DSL_REFERENCE.html",
-        "COMMON_PATTERNS.html",
-        "EXAMPLES.html",
+        "dsl-reference.html",
+        "common-patterns.html",
+        "examples.html",
       ]) {
         expect(html).toContain(`href="${link}"`);
       }
@@ -174,7 +174,7 @@ describe("build-docs", () => {
 
     it("renders md pages with crumb, toc tree, and continue tree", () => {
       const html = readFileSync(
-        path.join(outDir, "DSL_REFERENCE.html"),
+        path.join(outDir, "dsl-reference.html"),
         "utf8"
       );
       expect(html).toContain('class="crumb"');
@@ -185,8 +185,22 @@ describe("build-docs", () => {
       expect(html).not.toContain(".md)");
     });
 
+    it("has no broken internal links on any page", () => {
+      const built = new Set(
+        readdirSync(outDir).filter((f) => f.endsWith(".html"))
+      );
+      for (const page of built) {
+        const html = readFileSync(path.join(outDir, page), "utf8");
+        for (const m of html.matchAll(/href="([^"#]+)(?:#[\w-]*)?"/g)) {
+          const href = m[1];
+          if (href.startsWith("http") || href.startsWith("assets/")) continue;
+          expect(built.has(href), `${page} -> ${href}`).toBe(true);
+        }
+      }
+    });
+
     it("uses only design-system classes for code blocks", () => {
-      const html = readFileSync(path.join(outDir, "EXAMPLES.html"), "utf8");
+      const html = readFileSync(path.join(outDir, "examples.html"), "utf8");
       expect(html).toContain('class="cb"');
       expect(html).toContain('class="cbody"');
       expect(html).not.toContain("<pre><code");
