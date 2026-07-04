@@ -1,5 +1,5 @@
 {
-  "name": "lintp",
+  "name": "lintp-cli",
   "version": "0.2.2",
   "description": "File system linter with a custom DSL for directory structure validation",
   "main": "dist/src/index.js",

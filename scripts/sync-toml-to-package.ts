@@ -42,12 +42,9 @@ function syncTomlToPackageJson(): {
   let updated = false;
   const changes = [];
 
-  if (toml.package.name && packageJson.name !== toml.package.name) {
-    const oldValue = packageJson.name;
-    packageJson.name = toml.package.name;
-    changes.push(`name: ${oldValue} → ${packageJson.name}`);
-    updated = true;
-  }
+  // The name is intentionally NOT synced: the crate is `lintp` but the npm
+  // package is `lintp-cli` (npm rejected the bare name as too similar to
+  // existing packages). Only the installed binary is named lintp.
 
   if (toml.package.version && packageJson.version !== toml.package.version) {
     const oldValue = packageJson.version;
