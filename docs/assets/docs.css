@@ -53,7 +53,6 @@
 
   /* Layout */
   --col: 800px;
-  --measure: 640px;
   --page-pad-top: var(--sp-8);
   --page-pad-x: var(--sp-5);
   --page-pad-bottom: var(--sp-9);
@@ -123,7 +122,6 @@ body {
   font-size: var(--fs-md);
   line-height: var(--lh-body);
   color: var(--body-muted);
-  max-width: var(--measure);
   margin: var(--sp-1) 0 0;
   text-wrap: pretty;
 }
@@ -179,7 +177,6 @@ body {
   font-size: var(--fs-md);
   line-height: var(--lh-list);
   color: var(--body-muted);
-  max-width: var(--measure);
   margin: var(--sp-1) 0 0;
   padding-left: var(--sp-3);
 }
