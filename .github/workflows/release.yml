@@ -25,6 +25,27 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Auto-merge the release PR once required checks pass. The GitHub App
+      # token matters: auto-merge runs as whoever enabled it, and merges
+      # attributed to GITHUB_TOKEN would not trigger this workflow again —
+      # the release itself would silently never happen.
+      - name: Generate app token
+        if: ${{ steps.release.outputs.pr }}
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Enable auto-merge on the release PR
+        if: ${{ steps.release.outputs.pr }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: >
+          gh pr merge --merge --auto
+          "${{ fromJSON(steps.release.outputs.pr).number }}"
+          --repo ${{ github.repository }}
+
   build-binaries:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created }}

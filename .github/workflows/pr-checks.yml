@@ -48,7 +48,8 @@ jobs:
         uses: asdf-vm/actions/install@v4
 
       - name: Install dependencies
-        run: npm ci
+        # retried once: runner npm registry flakes (ECONNRESET) shouldn't fail PRs
+        run: npm ci || npm ci
 
       - name: Lint commits
         run: npx commitlint --from ${{ github.event.pull_request.head.sha }}~${{ github.event.pull_request.commits }} --to ${{ github.event.pull_request.head.sha }} --verbose
@@ -67,7 +68,8 @@ jobs:
         uses: google/wireit@setup-github-actions-caching/v2
 
       - name: Install dependencies
-        run: npm ci
+        # retried once: runner npm registry flakes (ECONNRESET) shouldn't fail PRs
+        run: npm ci || npm ci
 
       - name: Run format check
         run: npm run format:check
@@ -86,7 +88,8 @@ jobs:
         uses: google/wireit@setup-github-actions-caching/v2
 
       - name: Install dependencies
-        run: npm ci
+        # retried once: runner npm registry flakes (ECONNRESET) shouldn't fail PRs
+        run: npm ci || npm ci
 
       - name: Run lint check
         run: npm run lint
@@ -105,7 +108,8 @@ jobs:
         uses: google/wireit@setup-github-actions-caching/v2
 
       - name: Install dependencies
-        run: npm ci
+        # retried once: runner npm registry flakes (ECONNRESET) shouldn't fail PRs
+        run: npm ci || npm ci
 
       - name: Run type check
         run: npm run check
@@ -124,7 +128,8 @@ jobs:
         uses: google/wireit@setup-github-actions-caching/v2
 
       - name: Install dependencies
-        run: npm ci --prefer-offline --no-audit
+        # retried once: runner npm registry flakes (ECONNRESET) shouldn't fail PRs
+        run: npm ci --prefer-offline --no-audit || npm ci --prefer-offline --no-audit
 
       - name: Run tests
         run: npm test
