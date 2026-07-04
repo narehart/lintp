@@ -1,6 +1,6 @@
 {
   "name": "lintp",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "File system linter with a custom DSL for directory structure validation",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -107,122 +107,253 @@
   },
   "wireit": {
     "build": {
-      "dependencies": ["build:ts", "build:rust"]
+      "dependencies": [
+        "build:ts",
+        "build:rust"
+      ]
     },
     "build:ts": {
       "command": "tsc -p tsconfig.build.json",
-      "files": ["src/**/*.ts", "tsconfig.build.json", "tsconfig.json"],
-      "output": ["dist/**"]
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.build.json",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/**"
+      ]
     },
     "build:rust": {
       "command": "cargo build --release",
-      "files": ["src/**/*.rs", "Cargo.toml", "Cargo.lock"],
-      "output": ["target/release/**"]
+      "files": [
+        "src/**/*.rs",
+        "Cargo.toml",
+        "Cargo.lock"
+      ],
+      "output": [
+        "target/release/**"
+      ]
     },
     "check": {
-      "dependencies": ["check:ts", "check:rust"]
+      "dependencies": [
+        "check:ts",
+        "check:rust"
+      ]
     },
     "check:ts": {
       "command": "tsc --noEmit",
-      "files": ["src/**/*.ts", "test/**/*.ts", "tsconfig.json"]
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "tsconfig.json"
+      ]
     },
     "check:rust": {
       "command": "cargo check",
-      "files": ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
+      "files": [
+        "src/**/*.rs",
+        "Cargo.toml",
+        "Cargo.lock"
+      ]
     },
     "test": {
-      "dependencies": ["test:ts", "test:rust"]
+      "dependencies": [
+        "test:ts",
+        "test:rust"
+      ]
     },
     "test:ts": {
       "command": "vitest run",
-      "files": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"],
-      "dependencies": ["build:ts"]
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "vitest.config.ts"
+      ],
+      "dependencies": [
+        "build:ts"
+      ]
     },
     "test:rust": {
       "command": "cargo test",
-      "files": ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
+      "files": [
+        "src/**/*.rs",
+        "Cargo.toml",
+        "Cargo.lock"
+      ]
     },
     "coverage": {
-      "dependencies": ["coverage:ts", "coverage:rust"]
+      "dependencies": [
+        "coverage:ts",
+        "coverage:rust"
+      ]
     },
     "coverage:ts": {
       "command": "vitest run --coverage",
-      "files": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"],
-      "output": ["coverage/**"],
-      "dependencies": ["build:ts"]
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "vitest.config.ts"
+      ],
+      "output": [
+        "coverage/**"
+      ],
+      "dependencies": [
+        "build:ts"
+      ]
     },
     "coverage:rust": {
       "command": "cargo tarpaulin --out Html --output-dir target/coverage --fail-under 60",
-      "files": ["src/**/*.rs", "Cargo.toml", "Cargo.lock"],
-      "output": ["target/coverage/**"]
+      "files": [
+        "src/**/*.rs",
+        "Cargo.toml",
+        "Cargo.lock"
+      ],
+      "output": [
+        "target/coverage/**"
+      ]
     },
     "coverage:check": {
       "command": "tsx scripts/check-coverage.ts",
-      "files": ["scripts/check-coverage.ts"],
-      "dependencies": ["coverage"]
+      "files": [
+        "scripts/check-coverage.ts"
+      ],
+      "dependencies": [
+        "coverage"
+      ]
     },
     "coverage:check:ts": {
       "command": "tsx scripts/check-coverage.ts --ts",
-      "files": ["scripts/check-coverage.ts"],
-      "dependencies": ["coverage:ts"]
+      "files": [
+        "scripts/check-coverage.ts"
+      ],
+      "dependencies": [
+        "coverage:ts"
+      ]
     },
     "coverage:check:rust": {
       "command": "tsx scripts/check-coverage.ts --rust",
-      "files": ["scripts/check-coverage.ts"],
-      "dependencies": ["coverage:rust"]
+      "files": [
+        "scripts/check-coverage.ts"
+      ],
+      "dependencies": [
+        "coverage:rust"
+      ]
     },
     "sync-toml": {
       "command": "tsx scripts/sync-toml-to-package.ts",
-      "files": ["scripts/sync-toml-to-package.ts", "Cargo.toml", "package.json"]
+      "files": [
+        "scripts/sync-toml-to-package.ts",
+        "Cargo.toml",
+        "package.json"
+      ]
     },
     "prepublishOnly": {
-      "dependencies": ["build:ts", "sync-toml"]
+      "dependencies": [
+        "build:ts",
+        "sync-toml"
+      ]
     },
     "format": {
-      "dependencies": ["format:ts", "format:rust"]
+      "dependencies": [
+        "format:ts",
+        "format:rust"
+      ]
     },
     "format:ts": {
       "command": "prettier --write .",
-      "files": ["**/*.{ts,js,json,md,yml,yaml}", "!dist/**", "!target/**", "!node_modules/**", "!coverage/**"]
+      "files": [
+        "**/*.{ts,js,json,md,yml,yaml}",
+        "!dist/**",
+        "!target/**",
+        "!node_modules/**",
+        "!coverage/**"
+      ]
     },
     "format:rust": {
       "command": "cargo fmt",
-      "files": ["src/**/*.rs", "Cargo.toml"]
+      "files": [
+        "src/**/*.rs",
+        "Cargo.toml"
+      ]
     },
     "format:check": {
-      "dependencies": ["format:ts:check", "format:rust:check"]
+      "dependencies": [
+        "format:ts:check",
+        "format:rust:check"
+      ]
     },
     "format:ts:check": {
       "command": "prettier --check .",
-      "files": ["**/*.{ts,js,json,md,yml,yaml}", "!dist/**", "!target/**", "!node_modules/**", "!coverage/**"]
+      "files": [
+        "**/*.{ts,js,json,md,yml,yaml}",
+        "!dist/**",
+        "!target/**",
+        "!node_modules/**",
+        "!coverage/**"
+      ]
     },
     "format:rust:check": {
       "command": "cargo fmt -- --check",
-      "files": ["src/**/*.rs", "Cargo.toml"]
+      "files": [
+        "src/**/*.rs",
+        "Cargo.toml"
+      ]
     },
     "lint": {
-      "dependencies": ["lint:ts", "lint:rust"]
+      "dependencies": [
+        "lint:ts",
+        "lint:rust"
+      ]
     },
     "lint:ts": {
       "command": "eslint .",
-      "files": ["**/*.{ts,js}", "!dist/**", "!target/**", "!node_modules/**", "!coverage/**", "eslint.config.js"],
-      "dependencies": ["check:ts"]
+      "files": [
+        "**/*.{ts,js}",
+        "!dist/**",
+        "!target/**",
+        "!node_modules/**",
+        "!coverage/**",
+        "eslint.config.js"
+      ],
+      "dependencies": [
+        "check:ts"
+      ]
     },
     "lint:rust": {
       "command": "cargo clippy -- -D warnings",
-      "files": ["src/**/*.rs", "Cargo.toml", "Cargo.lock"],
-      "dependencies": ["check:rust"]
+      "files": [
+        "src/**/*.rs",
+        "Cargo.toml",
+        "Cargo.lock"
+      ],
+      "dependencies": [
+        "check:rust"
+      ]
     },
     "lint:fix": {
-      "dependencies": ["lint:fix:ts", "lint:fix:rust"]
+      "dependencies": [
+        "lint:fix:ts",
+        "lint:fix:rust"
+      ]
     },
     "lint:fix:ts": {
       "command": "eslint . --fix",
-      "files": ["**/*.{ts,js}", "!dist/**", "!target/**", "!node_modules/**", "!coverage/**", "eslint.config.js"]
+      "files": [
+        "**/*.{ts,js}",
+        "!dist/**",
+        "!target/**",
+        "!node_modules/**",
+        "!coverage/**",
+        "eslint.config.js"
+      ]
     },
     "lint:fix:rust": {
       "command": "cargo clippy --fix --allow-dirty --allow-staged",
-      "files": ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
+      "files": [
+        "src/**/*.rs",
+        "Cargo.toml",
+        "Cargo.lock"
+      ]
     }
   }
 }

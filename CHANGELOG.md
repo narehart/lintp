@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2 (2026-07-04)
+
+## What's Changed
+* docs: add terminal demo gif to readme by @narehart in https://github.com/narehart/lintp/pull/30
+* fix: cross-compile linker, release-please config mode, and version sync by @narehart in https://github.com/narehart/lintp/pull/33
+* fix: add front matter so the docs site renders README.html by @narehart in https://github.com/narehart/lintp/pull/34
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.2.1...v0.2.2
+
 ## [0.2.1](https://github.com/narehart/lintp/compare/v0.2.0...v0.2.1) (2026-07-03)
 
 
