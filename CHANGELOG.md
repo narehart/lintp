@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.3 (2026-07-04)
+
+## What's Changed
+* ci: run the release pr flow entirely under the github app token by @narehart in https://github.com/narehart/lintp/pull/46
+* ci: gate release-pr auto-merge without fromjson by @narehart in https://github.com/narehart/lintp/pull/47
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.3.2...v0.3.3
+
 ## 0.3.2 (2026-07-04)
 
 ## What's Changed
