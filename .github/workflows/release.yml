@@ -47,12 +47,18 @@ jobs:
 
       # Auto-merge so the release PR merges itself once the required checks go
       # green; the merge push then re-triggers this workflow to cut the release.
+      # No fromJSON: step expressions are evaluated even when the if-guard
+      # is false, and fromJSON('') on runs that create no PR is a template
+      # error that fails the job (observed on the 0.3.2 and post-merge runs).
+      # Gate on the string output and parse the JSON in shell instead.
       - name: Enable auto-merge on the release PR
-        if: ${{ steps.release.outputs.pr }}
+        if: ${{ steps.release.outputs.prs_created == 'true' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          PR: ${{ fromJSON(steps.release.outputs.pr).number }}
-        run: gh pr merge --merge --auto "$PR" --repo ${{ github.repository }}
+          RELEASE_PR: ${{ steps.release.outputs.pr }}
+        run: |
+          gh pr merge --merge --auto "$(jq -r .number <<< "$RELEASE_PR")" \
+            --repo ${{ github.repository }}
 
   build-binaries:
     needs: release-please
