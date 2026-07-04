@@ -1,6 +1,6 @@
 {
   "name": "lintp",
-  "version": "0.1.3",
+  "version": "0.2.1",
   "description": "File system linter with a custom DSL for directory structure validation",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",

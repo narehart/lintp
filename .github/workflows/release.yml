@@ -17,13 +17,13 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
       version: ${{ steps.release.outputs.version }}
     steps:
+      # No release-type/extra-files inputs: passing release-type bypasses
+      # release-please-config.json, whose json updater is what keeps
+      # package.json's version in sync (extra-files is not a v4 input)
       - uses: google-github-actions/release-please-action@v4
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          release-type: rust
-          extra-files: |
-            package.json
 
   build-binaries:
     needs: release-please
@@ -74,6 +74,9 @@ jobs:
 
       - name: Build binary
         run: cargo build --release --target ${{ matrix.target }}
+        env:
+          # cargo must link aarch64 objects with the cross-gcc, not host ld
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
       - name: Package binary
         shell: bash
@@ -109,6 +112,9 @@ jobs:
       - name: Publish platform package to npm
         shell: bash
         run: |
+          # Cargo.toml is the release's source of truth for the version;
+          # sync it into package.json before deriving the platform package
+          npm run sync-toml
           PKG_DIR=$(npx tsx scripts/prepare-platform-package.ts --target ${{ matrix.target }} | sed 's/^Platform package ready: //')
           npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
           npm publish "$PKG_DIR"
@@ -133,6 +139,9 @@ jobs:
 
       - name: Build TypeScript
         run: npm run build:ts
+
+      - name: Sync version from Cargo.toml
+        run: npm run sync-toml
 
       - name: Pin platform packages as optionalDependencies
         run: npx tsx scripts/sync-optional-deps.ts
