@@ -1,7 +1,9 @@
 /* lintp docs design system.
    One set of tokens, one set of components. Hand-authored pages and the
-   markdown build (scripts/build-docs.ts) emit the same classes — nothing
-   page-specific, no one-off styles. */
+   markdown build (scripts/build-docs.ts) emit the same classes.
+   Every value lives in :root — component rules reference tokens only.
+   (Sole exception: the 480px media-query breakpoint, since custom
+   properties cannot appear in media queries.) */
 
 :root {
   /* Color */
@@ -20,13 +22,23 @@
   --term-pass: #add2b1;
   --term-fail: #e49cb5;
 
-  /* Type scale */
+  /* Type */
+  --font-mono: "JetBrains Mono", monospace;
   --fs-xs: 11px;
   --fs-sm: 12px;
   --fs-code: 12.5px;
   --fs-md: 13px;
   --fs-body: 13.5px;
   --fs-lg: 16px;
+  --fw-bold: 700;
+  --fw-black: 800;
+
+  /* Line heights */
+  --lh-sub: 1.7;
+  --lh-code: 1.75;
+  --lh-body: 1.8;
+  --lh-list: 1.9;
+  --lh-tree: 2;
 
   /* Spacing scale */
   --sp-1: 12px;
@@ -37,23 +49,41 @@
   --sp-6: 34px;
   --sp-7: 48px;
   --sp-8: 56px;
+  --sp-9: 64px;
 
-  --radius: 6px;
+  /* Layout */
   --col: 800px;
   --measure: 640px;
+  --page-pad-top: var(--sp-8);
+  --page-pad-x: var(--sp-5);
+  --page-pad-bottom: var(--sp-9);
+
+  /* Component metrics */
+  --border-w: 1px;
+  --pad-chip: 1px 5px;
+  --pad-bar: 7px 12px;
+  --pad-cell: 5px 12px;
+  --btn-pad-y: 9px;
+  --btn-pad-x: 16px;
+  --gap-cmds: 10px;
+  --gap-foot: 6px;
+  --tree-name-col: 16ch;
+  --anchor-offset: 24px;
+  --radius: 6px;
+  --radius-sm: 3px;
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
 }
 
 .page {
   max-width: var(--col);
   margin: 0 auto;
-  padding: var(--sp-8) 32px 64px;
+  padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom);
   box-sizing: border-box;
 }
 
@@ -65,7 +95,7 @@ body {
 }
 .masthead strong,
 .crumb a {
-  font-weight: 800;
+  font-weight: var(--fw-black);
 }
 .masthead a,
 .crumb a {
@@ -74,7 +104,7 @@ body {
 }
 .masthead a:hover,
 .crumb a:hover {
-  border-bottom: 1px solid var(--ink);
+  border-bottom: var(--border-w) solid var(--ink);
 }
 .dim {
   color: var(--muted);
@@ -84,15 +114,14 @@ body {
 
 .sub {
   font-size: var(--fs-body);
-  line-height: 1.7;
-  margin: 14px 0 0;
-  max-width: 620px;
+  line-height: var(--lh-sub);
+  margin: var(--sp-1) 0 0;
   color: var(--body-muted);
 }
 
 .p {
   font-size: var(--fs-md);
-  line-height: 1.8;
+  line-height: var(--lh-body);
   color: var(--body-muted);
   max-width: var(--measure);
   margin: var(--sp-1) 0 0;
@@ -101,9 +130,9 @@ body {
 .p a,
 .ul a {
   color: var(--ink);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   text-decoration: none;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: var(--border-w) solid var(--hairline);
 }
 .p a:hover,
 .ul a:hover {
@@ -120,8 +149,8 @@ body {
 .ic {
   background: var(--panel-bar);
   color: var(--ink);
-  padding: 1px 5px;
-  border-radius: 3px;
+  padding: var(--pad-chip);
+  border-radius: var(--radius-sm);
   font-size: var(--fs-code);
 }
 
@@ -129,16 +158,16 @@ body {
 
 .h2 {
   font-size: var(--fs-lg);
-  font-weight: 800;
+  font-weight: var(--fw-black);
   margin: var(--sp-8) 0 0;
-  scroll-margin-top: 24px;
+  scroll-margin-top: var(--anchor-offset);
 }
 .h2 .slash {
   color: var(--hairline);
 }
 .h3 {
   font-size: var(--fs-md);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   margin: var(--sp-4) 0 0;
 }
 
@@ -146,35 +175,34 @@ body {
 
 .ul {
   font-size: var(--fs-md);
-  line-height: 1.9;
+  line-height: var(--lh-list);
   color: var(--body-muted);
   max-width: var(--measure);
   margin: var(--sp-1) 0 0;
-  padding-left: 20px;
+  padding-left: var(--sp-3);
 }
 
 /* ---- Terminal code panel ---- */
 
 .cb {
-  border: 1px solid var(--panel-border);
+  border: var(--border-w) solid var(--panel-border);
   border-radius: var(--radius);
   overflow: hidden;
   margin: var(--sp-2) 0 0;
-  max-width: var(--measure);
 }
 .cbar {
   background: var(--panel-bar);
-  padding: 7px 12px;
+  padding: var(--pad-bar);
   font-size: var(--fs-xs);
   color: var(--muted);
-  border-bottom: 1px solid var(--panel-border);
+  border-bottom: var(--border-w) solid var(--panel-border);
 }
 .cbody {
   margin: 0;
-  padding: 14px 16px;
+  padding: var(--sp-1) var(--sp-2);
   font-family: inherit;
   font-size: var(--fs-code);
-  line-height: 1.75;
+  line-height: var(--lh-code);
   overflow-x: auto;
   background: var(--term-bg);
   color: var(--term-fg);
@@ -197,17 +225,16 @@ body {
   margin: var(--sp-2) 0 0;
   display: block;
   overflow-x: auto;
-  max-width: var(--measure);
 }
 .tbl th,
 .tbl td {
-  border: 1px solid var(--panel-border);
-  padding: 5px 12px;
+  border: var(--border-w) solid var(--panel-border);
+  padding: var(--pad-cell);
   text-align: left;
 }
 .tbl th {
   background: var(--panel-bar);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
 }
 
 /* ---- Command blocks (homepage) ---- */
@@ -215,38 +242,40 @@ body {
 .cmds {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--gap-cmds);
   margin: var(--sp-3) 0 0;
 }
 .cmd {
   display: inline-block;
   background: var(--ink);
   color: var(--bg);
-  padding: 9px 16px;
+  padding: var(--btn-pad-y) var(--btn-pad-x);
   font-size: var(--fs-md);
   text-decoration: none;
 }
 .cmd-alt {
   background: transparent;
   color: var(--ink);
-  border: 1px solid var(--ink);
-  padding: 8px 15px;
+  border: var(--border-w) solid var(--ink);
+  /* compensate the border so both blocks are the same overall size */
+  padding: calc(var(--btn-pad-y) - var(--border-w))
+    calc(var(--btn-pad-x) - var(--border-w));
 }
 
 /* ---- Media panel (demo GIF) ---- */
 
 .shot {
-  border: 1px solid var(--panel-border);
+  border: var(--border-w) solid var(--panel-border);
   border-radius: var(--radius);
   overflow: hidden;
   margin: var(--sp-5) 0 0;
 }
 .bar {
   background: var(--panel-bar);
-  padding: 7px 12px;
+  padding: var(--pad-bar);
   font-size: var(--fs-xs);
   color: var(--muted);
-  border-bottom: 1px solid var(--panel-border);
+  border-bottom: var(--border-w) solid var(--panel-border);
 }
 .gif {
   width: 100%;
@@ -258,7 +287,7 @@ body {
 
 .tree {
   font-size: var(--fs-md);
-  line-height: 2;
+  line-height: var(--lh-tree);
   margin-top: var(--sp-5);
 }
 .guide {
@@ -266,13 +295,13 @@ body {
 }
 .tname {
   display: inline-block;
-  min-width: 16ch;
+  min-width: var(--tree-name-col);
 }
 .tlink {
   color: var(--ink);
   text-decoration: none;
-  font-weight: 700;
-  border-bottom: 1px solid var(--hairline);
+  font-weight: var(--fw-bold);
+  border-bottom: var(--border-w) solid var(--hairline);
 }
 .tlink:hover {
   border-color: var(--ink);
@@ -286,19 +315,19 @@ body {
 
 .foot {
   margin-top: var(--sp-8);
-  padding-top: 18px;
-  border-top: 1px solid var(--panel-border);
+  padding-top: var(--sp-2);
+  border-top: var(--border-w) solid var(--panel-border);
   font-size: var(--fs-sm);
   color: var(--muted);
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--gap-foot);
 }
 .flink {
   color: var(--body-muted);
   text-decoration: none;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: var(--border-w) solid var(--hairline);
 }
 .flink:hover {
   color: var(--ink);
@@ -308,8 +337,10 @@ body {
 /* ---- Responsive ---- */
 
 @media (max-width: 480px) {
-  .page {
-    padding: 36px 20px 48px;
+  :root {
+    --page-pad-top: var(--sp-6);
+    --page-pad-x: var(--sp-3);
+    --page-pad-bottom: var(--sp-7);
   }
   .note {
     display: none;
