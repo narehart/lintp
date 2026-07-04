@@ -35,6 +35,14 @@ lintp --help
 
 The npm package is named `lintp-cli` (npm reserves the bare name), but the command it installs is `lintp`. npm installs a prebuilt binary for your platform (macOS, Linux, and Windows on x64/arm64) through `optionalDependencies`. If no prebuilt package matches your platform, the launcher falls back to downloading a checksum-verified binary from the GitHub release.
 
+### From crates.io
+
+```bash
+cargo install lintp
+```
+
+Compiles from source with your Rust toolchain (1.82 or newer) — no Node.js required.
+
 ### Prerequisites (building from source)
 
 This project uses [asdf](https://asdf-vm.com/) to manage tool versions. Make sure you have asdf installed, then run:
