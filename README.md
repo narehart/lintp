@@ -26,13 +26,14 @@ A powerful file system linter that validates directory structures and file namin
 
 ```bash
 # Run without installing
-npx lintp
+npx lintp-cli
 
-# Or install globally
-npm install -g lintp
+# Or install globally — the installed command is `lintp`
+npm install -g lintp-cli
+lintp --help
 ```
 
-npm installs a prebuilt binary for your platform (macOS, Linux, and Windows on x64/arm64) through `optionalDependencies`. If no prebuilt package matches your platform, the launcher falls back to downloading a checksum-verified binary from the GitHub release.
+The npm package is named `lintp-cli` (npm reserves the bare name), but the command it installs is `lintp`. npm installs a prebuilt binary for your platform (macOS, Linux, and Windows on x64/arm64) through `optionalDependencies`. If no prebuilt package matches your platform, the launcher falls back to downloading a checksum-verified binary from the GitHub release.
 
 ### Prerequisites (building from source)
 

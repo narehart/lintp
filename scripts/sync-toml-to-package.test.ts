@@ -61,8 +61,10 @@ describe("sync-toml-to-package.ts", () => {
       );
       expect(mockParse).toHaveBeenCalledWith("cargo toml content");
 
+      // The npm package name intentionally differs from the crate name
+      // and must never be synced from Cargo.toml
       const expectedPackageJson = {
-        name: "new-name",
+        name: "old-name",
         version: "0.2.0",
         description: "New description",
       };
@@ -73,7 +75,9 @@ describe("sync-toml-to-package.ts", () => {
       );
 
       expect(consoleLog).toHaveBeenCalledWith("✅ package.json updated:");
-      expect(consoleLog).toHaveBeenCalledWith("  name: old-name → new-name");
+      expect(consoleLog).not.toHaveBeenCalledWith(
+        expect.stringContaining("name:")
+      );
       expect(consoleLog).toHaveBeenCalledWith("  version: 0.1.0 → 0.2.0");
       expect(consoleLog).toHaveBeenCalledWith(
         "  description: Old description → New description"
@@ -85,7 +89,7 @@ describe("sync-toml-to-package.ts", () => {
 
     it("should not update package.json when values are the same", async () => {
       const samePackageJson = {
-        name: "new-name",
+        name: "any-name-stays",
         version: "0.2.0",
         description: "New description",
       };
@@ -179,7 +183,7 @@ describe("sync-toml-to-package.ts", () => {
       const writtenContent = mockWriteFileSync.mock.calls[0][1] as string;
       const writtenJson = JSON.parse(writtenContent);
 
-      expect(writtenJson.name).toBe("new-name");
+      expect(writtenJson.name).toBe("old-name"); // Name is never synced
       expect(writtenJson.version).toBe("0.2.0");
       expect(writtenJson.description).toBe("Old description"); // Should keep the old description
       expect(result.updated).toBe(true);
