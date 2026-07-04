@@ -77,17 +77,23 @@ This project uses [Release Please](https://github.com/googleapis/release-please)
    - `feat!:` or `fix!:` commits (breaking changes) → major version bump (X.0.0)
 
 3. **Release Creation**: When the release PR is merged:
-   - A GitHub release is created with the new tag
-   - Release binaries are automatically built for all platforms
-   - The package is published to NPM
+   - A GitHub release is created with the new tag, with binaries and
+     SHA256 checksums for all 5 platforms attached
+   - Platform binary packages (`lintp-darwin-arm64` etc.) and the main
+     wrapper package (`lintp-cli` — npm reserves the bare name; the
+     installed command is still `lintp`) are published to npm
+   - The `lintp` crate is published to crates.io
 
 ### Manual Release (Emergency Only)
 
-In case the automated process fails, maintainers can trigger a manual release:
+The release workflow triggers on pushes to `main`, not on tags — pushing
+a tag by hand does nothing. If the automated process fails partway:
 
-1. Update version in `Cargo.toml`
-2. Create and push a tag: `git tag v0.X.Y && git push origin v0.X.Y`
-3. The release workflows will automatically trigger
+1. Fix the cause, land the fix on `main` as a `fix:` commit
+2. Merge the release PR that Release Please opens; the next release
+   re-publishes everything consistently
+3. For a stuck npm publish only, the `Publish to NPM` workflow can be
+   run manually from the Actions tab (workflow_dispatch)
 
 ### Notes
 
