@@ -283,6 +283,7 @@ function template(name: string, intro: string, bodyHtml: string): string {
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap"
       rel="stylesheet"
     />
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
     <link rel="stylesheet" href="assets/docs.css" />
   </head>
   <body>

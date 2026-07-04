@@ -7,6 +7,7 @@ authors = ["Nico Arehart"]
 license = "MIT"
 repository = "https://github.com/narehart/lintp"
 homepage = "https://narehart.github.io/lintp/"
+documentation = "https://narehart.github.io/lintp/"
 readme = "README.md"
 keywords = ["linter", "filesystem", "naming-conventions", "dsl", "cli"]
 categories = ["command-line-utilities", "development-tools", "filesystem"]

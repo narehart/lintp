@@ -7,7 +7,12 @@ mod dsl;
 mod lint;
 
 #[derive(Parser)]
-#[command(author, version, about = "File system linter with DSL")]
+#[command(
+    author,
+    version,
+    about = "File system linter with DSL",
+    after_help = "Docs: https://narehart.github.io/lintp/"
+)]
 struct Cli {
     /// Path to the lintp.yml config file
     #[arg(short, long, value_name = "FILE")]
