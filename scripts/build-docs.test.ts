@@ -5,6 +5,7 @@ import path from "path";
 import {
   buildDocs,
   colorizeCodeLine,
+  preprocess,
   rewriteLinks,
   slugify,
   toComponents,
@@ -47,6 +48,44 @@ describe("build-docs", () => {
     });
   });
 
+  describe("preprocess", () => {
+    it("extracts site:sub, heading notes, and drops skipped sections", () => {
+      const md = [
+        "# Title",
+        "",
+        "Intro.",
+        "",
+        "<!-- site:sub A one-line intro. -->",
+        "",
+        "## Keep <!-- note: kept things -->",
+        "",
+        "content",
+        "",
+        "## Drop <!-- site:skip -->",
+        "",
+        "hidden",
+        "",
+        "## Also Keep",
+        "",
+        "more",
+      ].join("\n");
+
+      const { md: out, notes, sub } = preprocess(md);
+      expect(sub).toBe("A one-line intro.");
+      expect(notes.get("keep")).toBe("kept things");
+      expect(out).toContain("## Keep");
+      expect(out).not.toContain("hidden");
+      expect(out).not.toContain("site:skip");
+      expect(out).toContain("## Also Keep");
+    });
+
+    it("drops standalone image lines", () => {
+      const { md } = preprocess("![demo](docs/demo.gif)\n\ntext");
+      expect(md).not.toContain("demo.gif");
+      expect(md).toContain("text");
+    });
+  });
+
   describe("toComponents", () => {
     it("emits design-system classes for markdown constructs", () => {
       const md = [
@@ -73,6 +112,9 @@ describe("build-docs", () => {
       expect(html).toContain('<code class="ic">');
       expect(html).toContain('<ul class="ul">');
       expect(html).toContain('<div class="cbar">yaml</div>');
+      expect(
+        toComponents('```bash title="shell — install"\nnpx lintp-cli\n```').html
+      ).toContain('<div class="cbar">shell — install</div>');
       expect(html).toContain('<span class="cmt"># comment</span>');
       expect(sections).toEqual([{ slug: "quick-start", name: "quick-start" }]);
     });
@@ -100,6 +142,20 @@ describe("build-docs", () => {
       }
       expect(existsSync(path.join(outDir, "assets", "docs.css"))).toBe(true);
       expect(written.length).toBeGreaterThanOrEqual(7);
+    });
+
+    it("derives getting-started from the README with metadata applied", () => {
+      const html = readFileSync(
+        path.join(outDir, "getting-started.html"),
+        "utf8"
+      );
+      expect(html).toContain("Install lintp, write your first lintp.yml");
+      expect(html).toContain('<div class="cbar">shell — install via npm</div>');
+      expect(html).toContain("# npm, from source");
+      expect(html).not.toContain("contributing");
+      expect(html).not.toContain("dsl-at-a-glance");
+      expect(html).not.toContain("demo.gif");
+      expect(html).not.toContain("site:");
     });
 
     it("renders md pages with crumb, toc tree, and continue tree", () => {

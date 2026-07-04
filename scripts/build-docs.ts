@@ -6,12 +6,16 @@
  *
  *   npm run docs:build && npm run docs:preview
  *
- * Two kinds of pages, one design system (docs/assets/docs.css):
- * - hand-authored pages (docs/index.html, docs/pages/*.html) are copied
- *   through unchanged; they use the design-system classes directly
- * - markdown pages are rendered with a transform that emits the SAME
- *   design-system classes, so generated and hand-authored pages are
- *   built from identical components
+ * Every doc page is derived from markdown (single source of truth: the
+ * README and docs/*.md), rendered into the design-system components in
+ * docs/assets/docs.css. Three markdown-native conventions carry
+ * site-only presentation without duplicating content (all invisible on
+ * GitHub/npm):
+ *
+ *   ```bash title="shell — install via npm"   fence title → panel bar
+ *   ## Installation <!-- note: npm, from source -->   ToC annotation
+ *   ## Contributing <!-- site:skip -->        omit section from the site
+ *   <!-- site:sub One-line page intro. -->    intro under the crumb
  */
 
 import fs from "fs";
@@ -33,6 +37,12 @@ interface MdPage {
 
 const MD_PAGES: MdPage[] = [
   {
+    src: "README.md",
+    out: "getting-started.html",
+    name: "getting-started",
+    note: "# install, CLI, config structure",
+  },
+  {
     src: "docs/DSL_REFERENCE.md",
     out: "DSL_REFERENCE.html",
     name: "dsl-reference",
@@ -52,13 +62,6 @@ const MD_PAGES: MdPage[] = [
   },
 ];
 
-const GETTING_STARTED = {
-  out: "getting-started.html",
-  name: "getting-started",
-  note: "# install, CLI, config structure",
-};
-
-const CUSTOM_PAGES_DIR = "docs/pages";
 const STATIC_FILES = ["docs/index.html", "docs/demo.gif"];
 const STATIC_DIRS = ["docs/assets"];
 
@@ -96,18 +99,23 @@ export function colorizeCodeLine(escaped: string): string {
   if (/^\s*✗/.test(escaped)) return `<span class="fail">${escaped}</span>`;
   // full-line comment
   if (/^\s*#(\s|$)/.test(escaped)) return `<span class="cmt">${escaped}</span>`;
+  // troubleshooting fix lines ("  → do this instead")
+  if (/^\s*→/.test(escaped)) return `<span class="cmt">${escaped}</span>`;
   // trailing comment after whitespace
   return escaped.replace(/(\s)(#\s[^#]*)$/, '$1<span class="cmt">$2</span>');
 }
 
 /** Render a fenced code block as the design system's terminal panel */
-function codePanel(code: string, lang: string | undefined): string {
+function codePanel(code: string, info: string | undefined): string {
   const body = code
     .replace(/\n$/, "")
     .split("\n")
     .map((line) => colorizeCodeLine(escapeHtml(line)))
     .join("\n");
-  const bar = lang && lang.trim() ? lang.trim() : "code";
+  // fence info: `lang` or `lang title="panel bar text"`
+  const titleMatch = (info ?? "").match(/title="([^"]+)"/);
+  const lang = (info ?? "").trim().split(/\s+/)[0];
+  const bar = titleMatch ? titleMatch[1] : lang || "code";
   return `<div class="cb"><div class="cbar">${escapeHtml(
     bar
   )}</div><pre class="cbody">${body}</pre></div>`;
@@ -116,6 +124,47 @@ function codePanel(code: string, lang: string | undefined): string {
 interface Section {
   slug: string;
   name: string;
+  note?: string;
+}
+
+interface Preprocessed {
+  md: string;
+  notes: Map<string, string>;
+  sub?: string;
+}
+
+/**
+ * Extract site-only metadata (invisible on GitHub) and strip content
+ * that must not reach the site build.
+ */
+export function preprocess(md: string): Preprocessed {
+  const notes = new Map<string, string>();
+  let sub: string | undefined;
+
+  // <!-- site:sub ... --> anywhere → page intro
+  const subMatch = md.match(/<!--\s*site:sub\s+([\s\S]*?)-->/);
+  if (subMatch) sub = subMatch[1].trim();
+  let out = md.replace(/<!--\s*site:sub\s+[\s\S]*?-->\n?/g, "");
+
+  // drop sections marked <!-- site:skip --> (until the next ## or EOF)
+  out = out.replace(
+    /^## [^\n]*<!--\s*site:skip\s*-->[\s\S]*?(?=^## |(?![\s\S]))/gm,
+    ""
+  );
+
+  // ## Heading <!-- note: ... --> → ToC annotation
+  out = out.replace(
+    /^## (.*?)\s*<!--\s*note:\s*(.*?)\s*-->\s*$/gm,
+    (_, title, note) => {
+      notes.set(slugify(title), note);
+      return `## ${title}`;
+    }
+  );
+
+  // images stay in the README (the site homepage carries the demo)
+  out = out.replace(/^!\[[^\]]*\]\([^)]*\)\s*$/gm, "");
+
+  return { md: out, notes, sub };
 }
 
 /**
@@ -123,7 +172,10 @@ interface Section {
  * Fenced code is pulled out before parsing so the paragraph and
  * inline-code transforms can't touch panel contents.
  */
-export function toComponents(md: string): {
+export function toComponents(
+  md: string,
+  notes: Map<string, string> = new Map()
+): {
   html: string;
   sections: Section[];
 } {
@@ -149,7 +201,7 @@ export function toComponents(md: string): {
     // h2 → lowercase-slug section heading with trailing slash
     .replace(/<h2>(.*?)<\/h2>/g, (_, inner) => {
       const slug = slugify(inner);
-      sections.push({ slug, name: slug });
+      sections.push({ slug, name: slug, note: notes.get(slug) });
       return `<h2 class="h2" id="${slug}">${slug}<span class="slash">/</span></h2>`;
     })
     .replace(
@@ -173,10 +225,16 @@ export function toComponents(md: string): {
 /** In-page table of contents as a directory tree */
 export function tocTree(pageName: string, sections: Section[]): string {
   if (sections.length < 2) return "";
+  const width = Math.max(...sections.map((s) => s.name.length)) + 1;
   const rows = sections
     .map((s, i) => {
       const guide = i === sections.length - 1 ? "└── " : "├── ";
-      return `<div><span class="guide">${guide}</span><a class="tlink" href="#${s.slug}">${s.name}</a></div>`;
+      const note = s.note
+        ? `<span class="note">${" ".repeat(width - s.name.length)}# ${
+            s.note
+          }</span>`
+        : "";
+      return `<div><span class="guide">${guide}</span><a class="tlink" href="#${s.slug}">${s.name}</a>${note}</div>`;
     })
     .join("\n");
   return `<div class="tree">\n<div><span class="dim">${pageName}/</span></div>\n${rows}\n</div>`;
@@ -184,9 +242,7 @@ export function tocTree(pageName: string, sections: Section[]): string {
 
 /** continue/ tree linking to the other doc pages */
 function continueTree(currentName: string): string {
-  const others = [GETTING_STARTED, ...MD_PAGES].filter(
-    (p) => p.name !== currentName
-  );
+  const others = MD_PAGES.filter((p) => p.name !== currentName);
   const width = Math.max(...others.map((p) => p.name.length)) + 1;
   const rows = others
     .map((p, i) => {
@@ -238,28 +294,28 @@ export function buildDocs(outDir: string): string[] {
   const written: string[] = [];
 
   for (const page of MD_PAGES) {
-    const md = fs.readFileSync(path.join(ROOT, page.src), "utf8");
-    const { html, sections } = toComponents(rewriteLinks(md));
+    const raw = fs.readFileSync(path.join(ROOT, page.src), "utf8");
+    const { md, notes, sub } = preprocess(raw);
+    const { html, sections } = toComponents(rewriteLinks(md), notes);
 
-    // The first paragraph doubles as the intro under the crumb
-    const introMatch = html.match(/<p class="p">[\s\S]*?<\/p>/);
-    const intro = introMatch
-      ? introMatch[0].replace('class="p"', 'class="sub"')
-      : "";
-    const body = introMatch ? html.replace(introMatch[0], "") : html;
+    // Intro under the crumb: site:sub metadata, else the first paragraph
+    let intro: string;
+    let body: string;
+    if (sub) {
+      intro = `<p class="sub">${sub}</p>`;
+      const firstP = html.match(/<p class="p">[\s\S]*?<\/p>/);
+      body = firstP ? html.replace(firstP[0], "") : html;
+    } else {
+      const firstP = html.match(/<p class="p">[\s\S]*?<\/p>/);
+      intro = firstP ? firstP[0].replace('class="p"', 'class="sub"') : "";
+      body = firstP ? html.replace(firstP[0], "") : html;
+    }
 
     fs.writeFileSync(
       path.join(outDir, page.out),
       template(page.name, intro, `${tocTree(page.name, sections)}\n${body}`)
     );
     written.push(page.out);
-  }
-
-  const customDir = path.join(ROOT, CUSTOM_PAGES_DIR);
-  for (const file of fs.readdirSync(customDir)) {
-    if (!file.endsWith(".html")) continue;
-    fs.copyFileSync(path.join(customDir, file), path.join(outDir, file));
-    written.push(file);
   }
 
   for (const file of STATIC_FILES) {

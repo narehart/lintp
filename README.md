@@ -2,122 +2,69 @@
 
 A powerful file system linter that validates directory structures and file naming conventions using a custom Domain-Specific Language (DSL) defined in YAML configuration files.
 
+<!-- site:sub Install lintp, write your first lintp.yml, and run it against a project — plus configuration, CLI flags, and troubleshooting. -->
+
 ![lintp demo: failing files are flagged with the exact rule condition that failed, then pass after renaming](https://raw.githubusercontent.com/narehart/lintp/main/docs/demo.gif)
 
-## Table of Contents
+## Installation <!-- note: npm, from source -->
 
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Built-in Variables](#built-in-variables)
-- [Basic Concepts](#basic-concepts)
-- [Configuration](#configuration)
-- [DSL at a Glance](#dsl-at-a-glance)
-- [CLI Reference](#cli-reference)
-- [Best Practices](#best-practices)
-- [Troubleshooting](#troubleshooting)
-- [Additional Resources](#additional-resources)
+npm ships a prebuilt binary for macOS, Linux, and Windows (x64/arm64) via `optionalDependencies`. If no prebuilt package matches your platform, the launcher falls back to a checksum-verified binary from the GitHub release. The npm package is named `lintp-cli` (npm reserves the bare name) — the installed command is `lintp`.
 
-## Installation
-
-### From npm (recommended)
-
-```bash
-# Run without installing
+```bash title="shell — install via npm"
+# run without installing
 npx lintp-cli
 
-# Or install globally — the installed command is `lintp`
+# or install globally — the command is `lintp`
 npm install -g lintp-cli
-lintp --help
 ```
-
-The npm package is named `lintp-cli` (npm reserves the bare name), but the command it installs is `lintp`. npm installs a prebuilt binary for your platform (macOS, Linux, and Windows on x64/arm64) through `optionalDependencies`. If no prebuilt package matches your platform, the launcher falls back to downloading a checksum-verified binary from the GitHub release.
 
 ### From crates.io
 
-```bash
-cargo install lintp
+```bash title="shell — install via cargo"
+cargo install lintp   # compiles with your Rust toolchain (1.82+)
 ```
 
-Compiles from source with your Rust toolchain (1.82 or newer) — no Node.js required.
+### From source
 
-### Prerequisites (building from source)
+The project uses [asdf](https://asdf-vm.com/) to pin Node.js and Rust versions.
 
-This project uses [asdf](https://asdf-vm.com/) to manage tool versions. Make sure you have asdf installed, then run:
-
-```bash
-asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
-asdf plugin add rust https://github.com/code-lever/asdf-rust.git
-asdf install
-```
-
-### From Source
-
-```bash
+```bash title="shell — build from source"
 git clone https://github.com/narehart/lintp.git
 cd lintp
-asdf install  # Install required Node.js and Rust versions
+asdf install          # required Node.js + Rust versions
 cargo build --release
 ./target/release/lintp --help
 ```
 
-### Binary Usage
+## Quick Start <!-- note: first config, first run -->
 
-```bash
-# Basic usage with default config (lintp.yml)
-lintp
+Create `lintp.yml` in your project root. Define reusable patterns under `custom-matchers`, then assign a rule to each file type under `config`.
 
-# Specify custom config file
-lintp --config my-rules.yml
-
-# Lint specific directory
-lintp /path/to/project
-
-# Verbose output
-lintp --verbose
-
-# Combine options
-lintp --config custom.yml --verbose /path/to/project
-```
-
-## Quick Start
-
-### 1. Create a Configuration File
-
-Create `lintp.yml` in your project root:
-
-```yaml
+```yaml title="lintp.yml"
 lintp:
-  # Define reusable patterns
+  # define reusable patterns
   custom-matchers:
     kebab-case: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)"
     PascalCase: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
-    camelCase: "matches($BASENAME, /^[a-z][a-zA-Z0-9]*$/)"
     js-file: '$EXT == "js"'
     ts-file: '$EXT == "ts"'
 
-  # Define rules for different file types
+  # rules per file type
   config:
     .js: "kebab-case && js-file"
     .ts: "PascalCase && ts-file"
     .dir: "kebab-case || PascalCase"
 
-  # Files/directories to ignore
   ignore:
     - node_modules
     - .git
     - dist
-    - build
 ```
 
-### 2. Run the Linter
+Run it. Every file and directory is checked against the longest-matching suffix rule; failures name the exact condition that failed.
 
-```bash
-lintp
-```
-
-Output:
-
-```
+```text title="shell — first run"
+$ lintp
 ✓ ./src/utils.js
 ✓ ./src/UserManager.ts
 ✗ ./src/badFile.js - .js - Does not match rule: kebab-case && js-file (failed: kebab-case)
@@ -125,133 +72,65 @@ Output:
 Some files or directories do not match the configured rules.
 ```
 
-## Built-in Variables
+Rules combine **variables** ($NAME, $EXT…), **operators** (&&, ||, !, ==…), **functions** (matches, contains, startsWith…) and **collections** (siblings, children, find). The complete language lives in the [dsl-reference](docs/DSL_REFERENCE.md); reusable recipes in [common-patterns](docs/COMMON_PATTERNS.md).
 
-lintp provides built-in variables that give you access to file and path information within your DSL expressions.
+## Built-in Variables <!-- note: $NAME, $EXT, $PATH, $item… -->
 
-### File Variables
+Every DSL expression has access to the file being checked:
 
-```yaml
-# $NAME - Full filename including extension
-custom-matchers:
-  full-name-check: '$NAME == "package.json"'
+```text title="variables — file & context"
+$NAME      # full filename incl. extension   "index.test.js"
+$BASENAME  # filename without extension      "index.test"
+$EXT       # extension without the dot       "js"
+$PATH      # full file path                  "./src/index.test.js"
+$PARENT    # parent directory path           "./src"
+$item      # current item inside any(), all(), map(), filter()
+```
 
-# $BASENAME - Filename without extension
-custom-matchers:
-  base-check: '$BASENAME == "index"'
-
-# $EXT - File extension (without dot)
+```yaml title="lintp.yml — variables in matchers"
 custom-matchers:
   js-file: '$EXT == "js"'
-  script-file: 'in($EXT, ["js", "ts", "jsx", "tsx"])'
-
-# $PATH - Full file path
-custom-matchers:
-  path-check: 'contains($PATH, "/src/")'
-
-# $PARENT - Parent directory path
-custom-matchers:
-  in-tests: 'contains($PARENT, "tests")'
-```
-
-### Context Variables
-
-```yaml
-# $item - Current item in collection functions
-custom-matchers:
+  in-src: 'contains($PATH, "/src/")'
   has-js-sibling: 'any(siblings("*"), endsWith($item, ".js"))'
-  all-lowercase: 'all(children("*"), matches($item, /^[a-z-]+$/))'
 ```
 
-## Basic Concepts
+## Configuration <!-- note: rules, messages, ignore -->
 
-The lintp DSL allows you to create powerful validation rules using:
+Rule keys are **suffix patterns**, not just extensions: a file matches every key its path ends with, and the longest matching suffix wins. `Button.test.tsx` matches both `.tsx` and `.test.tsx`, and the `.test.tsx` rule applies. `.*` applies only when no other key matches; `.dir` targets directories.
 
-- **Variables** - Access file information (`$NAME`, `$EXT`, `$PATH`, etc.)
-- **Operators** - Combine conditions (`&&`, `||`, `!`, `==`, `!=`, etc.)
-- **Functions** - Perform operations (`matches()`, `contains()`, `startsWith()`, etc.)
-- **Collections** - Work with lists of files (`siblings()`, `children()`, `find()`)
-
-For detailed information, see our complete [DSL Reference](docs/DSL_REFERENCE.md) and [Common Patterns](docs/COMMON_PATTERNS.md).
-
-## Configuration
-
-### Configuration Structure
-
-```yaml
+```yaml title="lintp.yml — full structure"
 lintp:
-  custom-matchers: # Reusable pattern definitions
+  custom-matchers: # reusable pattern definitions
     pattern-name: "DSL expression"
-
-  config: # Rules for file types
-    .ext: "rule expression"
-    .dir: "rule for directories"
-
-  ignore: # Glob patterns to ignore
-    - pattern1
-    - pattern2
+  config: # suffix pattern → rule
+    .test.js: "test-file-naming"
+    .js: "kebab-case"
+    .dir: "kebab-case || PascalCase"
+    .*: "basic-naming-rules"
+  ignore: # glob patterns to skip
+    - node_modules
+    - "build/**"
+    - "*.tmp"
 ```
 
-### File Type Rules
+### Custom failure messages
 
-Rules are applied based on file extensions and special patterns:
+Any rule can be a map with a `message` that replaces the raw expression in failure output — point teammates at your conventions doc instead of a regex.
 
-```yaml
-config:
-  # JavaScript files
-  .js: "kebab-case && js-file"
-
-  # TypeScript files
-  .ts: "PascalCase && ts-file"
-
-  # Multiple extensions
-  .test.js: "test-file-naming"
-  .spec.ts: "spec-file-naming"
-
-  # Directories
-  .dir: "kebab-case || PascalCase"
-
-  # All files (fallback)
-  .*: "basic-naming-rules"
-```
-
-Rule keys are suffix patterns, not just extensions: a file matches every key its path ends with, and the **longest matching suffix wins**. `Button.test.tsx` matches both `.tsx` and `.test.tsx`, and the `.test.tsx` rule is applied. `.*` applies only when no other key matches.
-
-### Custom Failure Messages
-
-Any rule can be written as a map with a `message` that replaces the raw expression in failure output — useful for pointing teammates at your conventions doc:
-
-```yaml
+```yaml title="lintp.yml — custom message"
 config:
   .tsx:
     rule: "component-file"
-    message: "Component files must be PascalCase (see CONTRIBUTING.md)"
+    message: "Components must be PascalCase (see CONTRIBUTING.md)"
 ```
 
-```
-✗ ./src/badName.tsx - .tsx - Component files must be PascalCase (see CONTRIBUTING.md)
-```
-
-### Ignore Patterns
-
-```yaml
-ignore:
-  # Exact directory names
-  - node_modules
-  - .git
-
-  # Glob patterns
-  - "*.tmp"
-  - "build/**"
-  - "dist/**"
-
-  # Regex patterns (use glob syntax)
-  - ".*.bak"
+```text title="shell — failure output"
+✗ ./src/badName.tsx - .tsx - Components must be PascalCase (see CONTRIBUTING.md)
 ```
 
-## DSL at a Glance
+## DSL at a Glance <!-- site:skip -->
 
-Rules are boolean expressions over built-in variables, combined with `&&`, `||`, and `!`. The built-in functions:
+The built-in functions (full documentation with examples in the [DSL Reference](docs/DSL_REFERENCE.md)):
 
 | Function                   | Purpose                                           |
 | -------------------------- | ------------------------------------------------- |
@@ -271,357 +150,55 @@ Rules are boolean expressions over built-in variables, combined with `&&`, `||`,
 | `find(path, glob)`         | Files matching glob under a path                  |
 | `exists(glob[, min, max])` | Files matching glob exist (optionally bounded)    |
 
-For literals, operators, precedence, string templates, and full function documentation with examples, see the **[DSL Reference](docs/DSL_REFERENCE.md)**. Reusable naming-convention snippets live in **[Common Patterns](docs/COMMON_PATTERNS.md)**.
+## CLI Reference <!-- note: flags, exit codes, output -->
 
-## CLI Reference
-
-### Basic Usage
-
-```bash
-# Lint current directory with default config
-lintp
-
-# Specify directory to lint
-lintp /path/to/project
-
-# Use custom config file
-lintp --config custom-rules.yml
-
-# Verbose output
-lintp --verbose
-
-# Combine options
-lintp --config rules.yml --verbose /path/to/project
+```text title="shell — usage"
+lintp                          # lint cwd with ./lintp.yml
+lintp /path/to/project         # lint a specific directory
+lintp --config custom.yml      # custom config file
+lintp --verbose                # show every file checked
 ```
 
-### Exit Codes
+Exit code `0` when everything passes, `1` on any violation or configuration error — a one-line CI gate. When a rule is a chain of `&&` conditions, the failing condition(s) are listed in the `(failed: …)` suffix so you don't have to bisect composed rules by hand.
 
-- `0` - All files pass linting rules
-- `1` - Some files fail linting rules or configuration error
+## Best Practices <!-- note: composing rules that scale -->
 
-### Output Format
+- **Start simple.** One kebab-case matcher and two config keys; add complexity as conventions solidify.
+- **Name matchers descriptively.** `react-component`, not `rule1`.
+- **Compose.** Build base patterns (`kebab-case`, `js-file`), then combine: `js-utility: "kebab-case && js-file"`.
+- **Test your rules.** Touch a good file and a bad file, run `lintp --verbose`, verify both outcomes.
+- **Ignore aggressively.** `node_modules`, build output, generated files — specific names beat broad wildcards for speed.
+- **Keep checks local.** `siblings()`/`children()` are cheap; `find(".", "**/*")` re-scans the project for every file.
 
-#### Success Output
+## Troubleshooting <!-- note: common errors, debug tips -->
 
-```
-✓ ./src/components/Button.tsx
-✓ ./src/utils/format.js
-✓ ./tests/button.test.tsx
-All files and directories match the configured rules.
-```
+```text title="common errors — cause → fix"
+✗ No config file found
+  → create lintp.yml or pass --config path/to/config.yml
 
-#### Failure Output
+✗ Invalid YAML in config file: expected ':' at line 5
+  → quote DSL expressions:  rule: '$NAME == "test"'
 
-```
-✓ ./src/components/Button.tsx
-✗ ./src/badFile.js - .js - Does not match rule: kebab-case && js-file (failed: kebab-case)
-✗ ./Invalid-Dir - .dir - Does not match rule: kebab-case || PascalCase
-✓ ./tests/button.test.tsx
-Some files or directories do not match the configured rules.
-```
+✗ Failed to parse rule: kebab-case && js file
+  → DSL syntax error; the matcher name is missing its hyphen
 
-When a rule is a chain of `&&` conditions, the failing condition(s) are listed in the `(failed: ...)` suffix so you don't have to bisect composed rules by hand.
+✗ Unknown matcher 'keba-case' referenced by rule '.js'
+  → define the matcher under custom-matchers first (checked at startup)
 
-#### Verbose Output
-
-```
-Checking: src/components/Button.tsx
-Checking: src/utils/format.js
-Checking: src/badFile.js
-Checking: tests/button.test.tsx
-✓ ./src/components/Button.tsx
-✓ ./src/utils/format.js
-✗ ./src/badFile.js - .js - Does not match rule: kebab-case && js-file
-✓ ./tests/button.test.tsx
-Some files or directories do not match the configured rules.
+✗ Circular reference detected: rule-a
+  → matchers may not reference each other in a cycle
 ```
 
-## Best Practices
+Debugging a rule: run with `--verbose`, read the `(failed: …)` suffix first, and test expressions in isolation with a minimal single-rule config.
 
-### 1. Start Simple
+## Additional Resources <!-- site:skip -->
 
-Begin with basic naming conventions and gradually add complexity:
+- **[Docs site](https://narehart.github.io/lintp/)** — this content plus the full reference, rendered
+- **[DSL Reference](docs/DSL_REFERENCE.md)** — complete language reference with all operators, functions, and variables
+- **[Common Patterns](docs/COMMON_PATTERNS.md)** — reusable patterns for naming conventions and validation rules
+- **[Examples](docs/EXAMPLES.md)** — real-world configuration examples for different project types
 
-```yaml
-# Start with this
-lintp:
-  custom-matchers:
-    kebab-case: "matches($BASENAME, /^[a-z0-9-]+$/)"
-
-  config:
-    .js: "kebab-case"
-    .dir: "kebab-case"
-
-  ignore:
-    - node_modules
-```
-
-### 2. Use Descriptive Matcher Names
-
-```yaml
-# Good - descriptive names
-custom-matchers:
-  react-component: 'matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/) && in($EXT, ["tsx", "jsx"])'
-  test-file: 'contains($NAME, "test") || contains($NAME, "spec")'
-
-# Bad - unclear names
-custom-matchers:
-  rule1: 'matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)'
-  check: 'contains($NAME, "test")'
-```
-
-### 3. Compose Complex Rules
-
-Break down complex rules into smaller, reusable pieces:
-
-```yaml
-custom-matchers:
-  # Base patterns
-  kebab-case: "matches($BASENAME, /^[a-z0-9-]+$/)"
-  PascalCase: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
-
-  # File types
-  js-file: '$EXT == "js"'
-  component-file: 'in($EXT, ["tsx", "jsx"])'
-
-  # Composed rules
-  js-utility: "kebab-case && js-file"
-  react-component: "PascalCase && component-file"
-```
-
-### 4. Document Your Rules
-
-Add comments to explain complex rules:
-
-```yaml
-custom-matchers:
-  # Component files must be PascalCase and end with .tsx/.jsx
-  react-component: "PascalCase && component-file"
-
-  # Test files must contain "test" or "spec" and have corresponding source file
-  valid-test: '(contains($NAME, "test") || contains($NAME, "spec")) &&
-    any(siblings("*"), without($item, ".test") == without($NAME, ".test"))'
-```
-
-### 5. Test Your Rules
-
-Create test files to verify your rules work as expected:
-
-```bash
-# Create test files
-touch good-file.js
-touch BadFile.js
-touch test.spec.js
-
-# Run linter
-lintp --verbose
-
-# Verify output matches expectations
-```
-
-### 6. Use Ignore Patterns Effectively
-
-```yaml
-ignore:
-  # Always ignore these
-  - node_modules
-  - .git
-  - dist
-  - build
-
-  # Temporary files
-  - "*.tmp"
-  - "*.bak"
-  - ".*.swp"
-
-  # Generated files
-  - "generated/**"
-  - "**/*.generated.*"
-```
-
-## Troubleshooting
-
-### Common Errors
-
-#### 1. Configuration File Not Found
-
-```
-Error: No config file found. Use --config to specify a config file path or create lintp.yml in the current directory.
-```
-
-**Solution:** Create `lintp.yml` or specify a config path:
-
-```bash
-lintp --config /path/to/config.yml
-```
-
-#### 2. Invalid YAML Syntax
-
-```
-Error: Invalid YAML in config file: expected ':' at line 5
-```
-
-**Solution:** Check YAML syntax, especially quotes and indentation:
-
-```yaml
-# Bad
-custom-matchers:
-  rule: $NAME == "test"  # Missing quotes around expression
-
-# Good
-custom-matchers:
-  rule: '$NAME == "test"'
-```
-
-#### 3. Parse Errors in DSL Expressions
-
-```
-Error: Failed to parse rule: kebab-case && js file
-                                           ^
-```
-
-**Solution:** Check DSL syntax, missing operators:
-
-```yaml
-# Bad
-rule: 'kebab-case && js file'  # Missing hyphen
-
-# Good
-rule: 'kebab-case && js-file'
-```
-
-#### 4. Unknown Reference Error
-
-```
-Error: Unknown reference: kebab-case
-```
-
-**Solution:** Define referenced matchers:
-
-```yaml
-custom-matchers:
-  kebab-case: "matches($BASENAME, /^[a-z0-9-]+$/)" # Define before using
-
-config:
-  .js: "kebab-case" # Now this works
-```
-
-#### 5. Circular Reference Error
-
-```
-Error: Circular reference detected in custom matcher: rule-a
-```
-
-**Solution:** Remove circular dependencies:
-
-```yaml
-# Bad - circular reference
-custom-matchers:
-  rule-a: 'rule-b && $EXT == "js"'
-  rule-b: 'rule-a || $EXT == "ts"'
-
-# Good - no circular dependency
-custom-matchers:
-  js-file: '$EXT == "js"'
-  ts-file: '$EXT == "ts"'
-  script-file: 'js-file || ts-file'
-```
-
-### Debug Tips
-
-#### 1. Use Verbose Mode
-
-```bash
-lintp --verbose
-```
-
-This shows which files are being checked and their processing status.
-
-#### 2. Read the (failed: ...) Suffix
-
-When a composed rule fails, the failure line names the specific `&&` condition(s) that failed — start there before bisecting by hand.
-
-#### 3. Test Individual Expressions
-
-Create a minimal config to test specific rules:
-
-```yaml
-lintp:
-  custom-matchers:
-    test-rule: "YOUR_EXPRESSION_HERE"
-
-  config:
-    .js: "test-rule"
-
-  ignore: []
-```
-
-#### 4. Check Variable Values
-
-Use simple expressions to verify variable contents:
-
-```yaml
-custom-matchers:
-  debug-name: '$NAME == "expected-name.js"'
-  debug-basename: '$BASENAME == "expected-name"'
-  debug-ext: '$EXT == "js"'
-```
-
-#### 5. Validate Regex Patterns
-
-Test regex patterns in isolation:
-
-```yaml
-custom-matchers:
-  test-regex: 'matches("test-input", /^your-pattern$/)'
-```
-
-### Performance Tips
-
-#### 1. Avoid Expensive File System Operations
-
-```yaml
-# Expensive - searches entire project for each file
-slow-rule: 'count(find(".", "**/*")) < 1000'
-
-# Better - use siblings/children for local checks
-fast-rule: 'count(siblings("*")) < 50'
-```
-
-#### 2. Use Specific Ignore Patterns
-
-```yaml
-# Good - specific ignores
-ignore:
-  - node_modules
-  - dist
-  - "*.log"
-
-# Less efficient - broad wildcards
-ignore:
-  - "**/*.tmp"    # Checks every file
-```
-
-#### 3. Order Rules by Specificity
-
-```yaml
-config:
-  # More specific first
-  .test.js: "test-file-rules"
-  .spec.js: "spec-file-rules"
-
-  # General patterns last
-  .js: "general-js-rules"
-  .*: "fallback-rules"
-```
-
-## Additional Resources
-
-- **[DSL Reference](docs/DSL_REFERENCE.md)** - Complete language reference with all operators, functions, and variables
-- **[Common Patterns](docs/COMMON_PATTERNS.md)** - Reusable patterns for naming conventions and validation rules
-- **[Examples](docs/EXAMPLES.md)** - Real-world configuration examples for different project types
-
-## Contributing
+## Contributing <!-- site:skip -->
 
 1. Fork the repository
 2. Create a feature branch
@@ -629,6 +206,8 @@ config:
 4. Ensure all tests pass: `cargo test`
 5. Submit a pull request
 
-## License
+See [CONTRIBUTING.md](CONTRIBUTING.md) for commit conventions, the release process, and the docs-site workflow.
+
+## License <!-- site:skip -->
 
 MIT License - see LICENSE file for details.
