@@ -279,6 +279,7 @@ body {
 }
 .note {
   color: var(--muted);
+  white-space: pre; /* pad-space alignment of # annotations */
 }
 
 /* ---- Footer ---- */

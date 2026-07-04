@@ -62,7 +62,8 @@ const MD_PAGES: MdPage[] = [
   },
 ];
 
-const STATIC_FILES = ["docs/index.html", "docs/demo.gif"];
+const HOMEPAGE = "docs/index.html";
+const STATIC_FILES = ["docs/demo.gif"];
 const STATIC_DIRS = ["docs/assets"];
 
 /** GitHub-compatible heading slug, so intra-page anchors keep working */
@@ -240,6 +241,22 @@ export function tocTree(pageName: string, sections: Section[]): string {
   return `<div class="tree">\n<div><span class="dim">${pageName}/</span></div>\n${rows}\n</div>`;
 }
 
+/** Homepage nav tree, derived from the page registry */
+export function navTree(): string {
+  const rows = MD_PAGES.map((p, i) => {
+    const guide = i === MD_PAGES.length - 1 ? "└── " : "├── ";
+    return `        <div>
+          <span class="guide">${guide}</span
+          ><span class="tname"><a class="tlink" href="${p.out}">${p.name}</a></span
+          ><span class="note">${p.note}</span>
+        </div>`;
+  }).join("\n");
+  return `<div class="tree">
+        <div><span class="dim">docs/</span></div>
+${rows}
+      </div>`;
+}
+
 /** continue/ tree linking to the other doc pages */
 function continueTree(currentName: string): string {
   const others = MD_PAGES.filter((p) => p.name !== currentName);
@@ -317,6 +334,16 @@ export function buildDocs(outDir: string): string[] {
     );
     written.push(page.out);
   }
+
+  const homepage = fs.readFileSync(path.join(ROOT, HOMEPAGE), "utf8");
+  if (!homepage.includes("<!-- nav-tree -->")) {
+    throw new Error(`${HOMEPAGE} is missing the <!-- nav-tree --> marker`);
+  }
+  fs.writeFileSync(
+    path.join(outDir, "index.html"),
+    homepage.replace("<!-- nav-tree -->", navTree())
+  );
+  written.push("index.html");
 
   for (const file of STATIC_FILES) {
     fs.copyFileSync(

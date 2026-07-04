@@ -158,6 +158,20 @@ describe("build-docs", () => {
       expect(html).not.toContain("site:");
     });
 
+    it("derives the homepage nav tree from the page registry", () => {
+      const html = readFileSync(path.join(outDir, "index.html"), "utf8");
+      expect(html).not.toContain("<!-- nav-tree -->");
+      for (const link of [
+        "getting-started.html",
+        "DSL_REFERENCE.html",
+        "COMMON_PATTERNS.html",
+        "EXAMPLES.html",
+      ]) {
+        expect(html).toContain(`href="${link}"`);
+      }
+      expect(html).toContain("# install, CLI, config structure");
+    });
+
     it("renders md pages with crumb, toc tree, and continue tree", () => {
       const html = readFileSync(
         path.join(outDir, "DSL_REFERENCE.html"),
