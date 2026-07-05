@@ -153,6 +153,15 @@ Three idioms doing the work:
 - **Per-scope messages**: failures cite the one convention that applies, not a wall of `||` branches
 - **`in()` allowlists**: exact-name sets read (and diff) better as lists than as `/^(a|b|c)$/` alternations
 
+When several file types share one convention, group their keys instead of repeating the rule:
+
+```yaml
+"src/assets/images/*":
+  ".{png,jpg,jpeg,gif,webp,svg}":
+    rule: "camelCase"
+    message: "image files are camelCase"
+```
+
 For directory sets, the same shape applies to `.dir`:
 
 ```yaml

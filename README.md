@@ -99,11 +99,20 @@ custom-matchers:
 
 Rule keys are **suffix patterns**, not just extensions: a file matches every key its path ends with, and the longest matching suffix wins. `Button.test.tsx` matches both `.tsx` and `.test.tsx`, and the `.test.tsx` rule applies. `.*` applies only when no other key matches; `.dir` targets directories.
 
+A key can group several suffixes with brace alternation — each expansion gets the same rule and message:
+
+```yaml title="lintp.yml — grouped suffixes"
+config:
+  ".{png,jpg,jpeg,gif,webp,svg}":
+    rule: "camelCase"
+    message: "image files are camelCase"
+```
+
 Suffix matching has one subtlety with dotfiles: a file literally named `.rules` also matches a `.rules:` key, but as a dotfile its `$EXT` is `""` and its `$BASENAME` is the full dotted name. Write `$EXT == "rules"` when a rule should apply only to real `.rules` extensions — or use the behavior deliberately: `.gitignore:` is a valid key for targeting that exact file.
 
 ### Directory-scoped rules
 
-A top-level key that is a glob pattern holds its own suffix→rule map, applied only to matching paths — and it **overrides** the global rule for the same suffix there. Globs match the path relative to the linted directory, and `*` crosses `/`, so `src/ui/*` covers the whole subtree. When several scopes match the same path, the most specific (longest pattern) wins: `src/ui/*` beats `src/*` for files under `src/ui/`.
+A top-level key that is a glob pattern holds its own suffix→rule map, applied only to matching paths — and it **overrides** the global rule for the same suffix there. Globs match the path relative to the linted directory, and `*` crosses `/`, so `src/ui/*` covers the whole subtree. When several scopes match the same path, the most specific (longest pattern) wins: `src/ui/*` beats `src/*` for files under `src/ui/`. Braces expand in scope keys too: `"api/{auth,billing}/*"` is two scopes sharing one rule map.
 
 ```yaml title="lintp.yml — per-directory conventions"
 config:

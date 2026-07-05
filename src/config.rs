@@ -67,6 +67,62 @@ fn validate_rule_key<E: serde::de::Error>(key: &str, scope: Option<&str>) -> Res
     )))
 }
 
+/// Expand glob-style brace alternation: ".{png,jpg}" → [".png", ".jpg"],
+/// "src/{a,b}/*" → ["src/a/*", "src/b/*"]. Multiple groups expand as a
+/// cartesian product; nesting is not supported. Returns the input
+/// unchanged when it contains no braces.
+fn expand_braces<E: serde::de::Error>(key: &str) -> Result<Vec<String>, E> {
+    let (Some(open), Some(close)) = (key.find('{'), key.find('}')) else {
+        if key.contains('{') || key.contains('}') {
+            return Err(E::custom(format!(
+                "Invalid key '{}': unbalanced braces",
+                key
+            )));
+        }
+        return Ok(vec![key.to_string()]);
+    };
+    if close < open {
+        return Err(E::custom(format!(
+            "Invalid key '{}': unbalanced braces",
+            key
+        )));
+    }
+    let inner = &key[open + 1..close];
+    if inner.contains('{') {
+        return Err(E::custom(format!(
+            "Invalid key '{}': nested braces are not supported",
+            key
+        )));
+    }
+    let (prefix, suffix) = (&key[..open], &key[close + 1..]);
+    let mut out = Vec::new();
+    for alt in inner.split(',') {
+        let alt = alt.trim();
+        if alt.is_empty() {
+            return Err(E::custom(format!(
+                "Invalid key '{}': empty alternative in braces",
+                key
+            )));
+        }
+        // suffix may contain further brace groups: expand recursively
+        for rest in expand_braces::<E>(suffix)? {
+            out.push(format!("{}{}{}", prefix, alt, rest));
+        }
+    }
+    Ok(out)
+}
+
+/// A rule key may group suffixes with brace alternation
+/// (".{png,jpg}: camelCase"); each expansion gets the same rule entry
+/// and is validated like a standalone key.
+fn expand_rule_keys<E: serde::de::Error>(key: &str, scope: Option<&str>) -> Result<Vec<String>, E> {
+    let parts = expand_braces::<E>(key)?;
+    for part in &parts {
+        validate_rule_key::<E>(part, scope)?;
+    }
+    Ok(parts)
+}
+
 // Custom deserializer for RuleConfig that rejects invalid values
 fn deserialize_rule_config<'de, D>(deserializer: D) -> Result<RuleConfig, D::Error>
 where
@@ -101,33 +157,39 @@ where
         // Process the value based on its type
         match value {
             Value::String(s) => {
-                validate_rule_key::<D::Error>(&key, None)?;
-                global_rules.insert(
-                    key,
-                    RuleEntry {
-                        rule: s,
-                        message: None,
-                    },
-                );
+                for part in expand_rule_keys::<D::Error>(&key, None)? {
+                    global_rules.insert(
+                        part,
+                        RuleEntry {
+                            rule: s.clone(),
+                            message: None,
+                        },
+                    );
+                }
             }
             Value::Mapping(nested_map) => {
                 // A mapping with a `rule` key is a rule with options
                 // (`{rule: ..., message: ...}`); any other mapping is a
                 // path-scoped block of extension rules.
                 if nested_map.contains_key(Value::String("rule".to_string())) {
-                    validate_rule_key::<D::Error>(&key, None)?;
                     let entry = rule_entry_from_mapping::<D>(&key, nested_map)?;
-                    global_rules.insert(key, entry);
+                    for part in expand_rule_keys::<D::Error>(&key, None)? {
+                        global_rules.insert(part, entry.clone());
+                    }
                     continue;
                 }
 
-                // The key is a path scope: its glob must compile, and an
-                // empty scope is a mistake, not a no-op
-                if let Err(e) = glob::Pattern::new(&key) {
-                    return Err(D::Error::custom(format!(
-                        "Invalid glob pattern for path scope '{}': {}",
-                        key, e
-                    )));
+                // The key is a path scope. Braces expand first ("src/{a,b}/*"
+                // becomes two scopes), then each glob must compile; an empty
+                // scope is a mistake, not a no-op
+                let scope_keys = expand_braces::<D::Error>(&key)?;
+                for scope_key in &scope_keys {
+                    if let Err(e) = glob::Pattern::new(scope_key) {
+                        return Err(D::Error::custom(format!(
+                            "Invalid glob pattern for path scope '{}': {}",
+                            scope_key, e
+                        )));
+                    }
                 }
                 if nested_map.is_empty() {
                     return Err(D::Error::custom(format!(
@@ -164,11 +226,14 @@ where
                         }
                     };
 
-                    validate_rule_key::<D::Error>(&nested_key, Some(&key))?;
-                    rule_map.insert(nested_key, entry);
+                    for part in expand_rule_keys::<D::Error>(&nested_key, Some(&key))? {
+                        rule_map.insert(part, entry.clone());
+                    }
                 }
 
-                path_rules.insert(key, rule_map);
+                for scope_key in scope_keys {
+                    path_rules.insert(scope_key, rule_map.clone());
+                }
             }
             _ => {
                 return Err(D::Error::custom(format!(
