@@ -32,7 +32,7 @@ pub fn run_lint(dir: &Path, config: &ParsedConfig, verbose: bool) -> Result<Vec<
         .with_context(|| "Failed to compile ignore patterns")?;
 
     // Compile path-rule globs once instead of once per visited file
-    let path_rule_patterns: Vec<(Pattern, &HashMap<String, RuleEntry>)> = config
+    let mut path_rule_patterns: Vec<(Pattern, &HashMap<String, RuleEntry>)> = config
         .raw
         .lintp
         .config
@@ -44,6 +44,13 @@ pub fn run_lint(dir: &Path, config: &ParsedConfig, verbose: bool) -> Result<Vec<
                 .with_context(|| format!("Invalid glob pattern: {}", glob_pattern))
         })
         .collect::<Result<Vec<_>>>()?;
+    // Overlapping scopes merge in order, later entries overwriting earlier
+    // ones, so sort ascending by specificity (pattern length, then text):
+    // when both src/* and src/ui/* match, src/ui/* wins — deterministically.
+    // Map iteration order would make the winner random per run.
+    path_rule_patterns.sort_by(|(a, _), (b, _)| {
+        (a.as_str().len(), a.as_str()).cmp(&(b.as_str().len(), b.as_str()))
+    });
 
     // Rules are pre-parsed at config load; anything else (e.g. configs
     // constructed programmatically) parses once here and is reused

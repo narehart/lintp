@@ -641,3 +641,63 @@ lintp:
 
     Ok(())
 }
+
+/// Overlapping path scopes must resolve deterministically with the most
+/// specific (longest) pattern winning — previously map iteration order
+/// made the winner random per run.
+#[test]
+fn test_overlapping_scopes_most_specific_wins() -> Result<()> {
+    // Both declaration orders, many iterations: same verdicts every time
+    for config_content in [
+        r#"
+lintp:
+  config:
+    .tsx: "false"
+    "src/*":
+      .tsx: 'matches($BASENAME, /^[a-z]+$/)'
+    "src/ui/*":
+      .tsx: 'matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)'
+  ignore: []
+"#,
+        r#"
+lintp:
+  config:
+    .tsx: "false"
+    "src/ui/*":
+      .tsx: 'matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)'
+    "src/*":
+      .tsx: 'matches($BASENAME, /^[a-z]+$/)'
+  ignore: []
+"#,
+    ] {
+        for _ in 0..20 {
+            let temp_dir = tempfile::tempdir()?;
+            let root = temp_dir.path();
+            std::fs::create_dir_all(root.join("src/ui"))?;
+            // Passes src/ui/* (PascalCase), fails src/* (lowercase):
+            // only the more specific scope may judge it
+            std::fs::write(root.join("src/ui/App.tsx"), "")?;
+            // And a file only src/* matches, judged by src/*
+            std::fs::write(root.join("src/legacy.tsx"), "")?;
+
+            let config: Config = serde_yaml::from_str(config_content)?;
+            let parsed_config = ParsedConfig {
+                raw: config,
+                parsed_matchers: HashMap::new(),
+                parsed_rules: HashMap::new(),
+            };
+
+            let results = run_lint(root, &parsed_config, false)?;
+            for result in results {
+                match result {
+                    LintResult::Success(_) => {}
+                    LintResult::Failure { path, .. } => {
+                        panic!("unexpected failure for {:?}", path)
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
