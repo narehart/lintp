@@ -604,3 +604,40 @@ lintp:
 
     Ok(())
 }
+
+/// $EXT must be an empty string (not an unknown variable) for
+/// extensionless files like LICENSE — a rule referencing $EXT would
+/// otherwise abort the entire run when it hits one.
+#[test]
+fn test_ext_is_empty_string_for_extensionless_files() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let root = temp_dir.path();
+    std::fs::write(root.join("LICENSE"), "text")?;
+    std::fs::write(root.join("a.js"), "code")?;
+
+    let config_content = r#"
+lintp:
+  config:
+    .js: '$EXT == "js"'
+    .*: '$EXT == ""'
+  ignore: []
+"#;
+    let config: Config = serde_yaml::from_str(config_content)?;
+    let parsed_config = ParsedConfig {
+        raw: config,
+        parsed_matchers: HashMap::new(),
+        parsed_rules: HashMap::new(),
+    };
+
+    let results = run_lint(root, &parsed_config, false)?;
+    assert_eq!(results.len(), 2);
+    for result in &results {
+        assert!(
+            matches!(result, LintResult::Success(_)),
+            "expected success, got: {:?}",
+            result
+        );
+    }
+
+    Ok(())
+}

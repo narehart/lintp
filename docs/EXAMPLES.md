@@ -469,11 +469,11 @@ lintp:
 
     # Has corresponding test
     has-test: 'any(
-      find(".", "*.test.*"),
-      contains(without($item, ".test"), without($NAME, "." + $EXT))
+      find(".", "**/*.test.*"),
+      contains($item, "${$BASENAME}.test")
     ) || any(
-      find(".", "*.spec.*"),
-      contains(without($item, ".spec"), without($NAME, "." + $EXT))
+      find(".", "**/*.spec.*"),
+      contains($item, "${$BASENAME}.spec")
     )'
 
     # Test coverage validation
