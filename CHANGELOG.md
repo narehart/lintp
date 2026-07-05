@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1 (2026-07-05)
+
+## What's Changed
+* fix: expose path and parent dsl variables as strings by @narehart in https://github.com/narehart/lintp/pull/51
+* fix: fail config load on silently inert shapes by @narehart in https://github.com/narehart/lintp/pull/52
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.4.0...v0.4.1
+
 ## 0.4.0 (2026-07-04)
 
 ## What's Changed
