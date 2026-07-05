@@ -14,7 +14,6 @@ pub enum Value {
     Boolean(bool),
     Regex(Regex),
     List(Vec<Value>),
-    Path(PathBuf),
 }
 
 impl std::fmt::Display for Value {
@@ -34,7 +33,6 @@ impl std::fmt::Display for Value {
                 }
                 write!(f, "]")
             }
-            Value::Path(p) => write!(f, "{}", p.display()),
         }
     }
 }
@@ -47,7 +45,6 @@ impl PartialEq for Value {
             (Value::Boolean(a), Value::Boolean(b)) => a == b,
             (Value::Regex(a), Value::Regex(b)) => a.as_str() == b.as_str(),
             (Value::List(a), Value::List(b)) => a == b,
-            (Value::Path(a), Value::Path(b)) => a == b,
             _ => false,
         }
     }

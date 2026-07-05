@@ -25,7 +25,10 @@ fn create_test_context<'a>(
         .file_name()
         .map_or("".to_string(), |n| n.to_string_lossy().to_string());
     variables.insert("NAME".to_string(), Value::String(name));
-    variables.insert("PATH".to_string(), Value::Path(path.to_path_buf()));
+    variables.insert(
+        "PATH".to_string(),
+        Value::String(path.display().to_string()),
+    );
 
     if let Some(ext) = path.extension() {
         variables.insert(
@@ -46,7 +49,10 @@ fn create_test_context<'a>(
     }
 
     if let Some(parent) = path.parent() {
-        variables.insert("PARENT".to_string(), Value::Path(parent.to_path_buf()));
+        variables.insert(
+            "PARENT".to_string(),
+            Value::String(parent.display().to_string()),
+        );
     }
 
     EvaluationContext {
@@ -153,18 +159,19 @@ fn test_variable_ext() -> Result<()> {
 
 #[test]
 fn test_variable_path() -> Result<()> {
-    // Test $PATH variable
+    // $PATH is a string so the documented patterns
+    // (contains($PATH, "/src/")) work on it
     let result = eval_expr("$PATH", "/path/to/file.js")?;
-    assert!(matches!(result, Value::Path(_)));
+    assert!(matches!(result, Value::String(s) if s == "/path/to/file.js"));
 
     Ok(())
 }
 
 #[test]
 fn test_variable_parent() -> Result<()> {
-    // Test $PARENT variable
+    // $PARENT is a string so $PARENT == "." comparisons work
     let result = eval_expr("$PARENT", "/path/to/file.js")?;
-    assert!(matches!(result, Value::Path(_)));
+    assert!(matches!(result, Value::String(s) if s == "/path/to"));
 
     Ok(())
 }

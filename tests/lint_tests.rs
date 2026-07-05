@@ -557,3 +557,50 @@ lintp:
 
     Ok(())
 }
+
+/// $PATH and $PARENT are strings: the documented location patterns —
+/// contains($PATH, "/dir/") and $PARENT == "." — must work.
+#[test]
+fn test_path_variables_support_string_operations() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let root = temp_dir.path();
+    std::fs::create_dir(root.join("tests"))?;
+    std::fs::write(root.join("tests/foo_tests.rs"), "// test")?;
+    std::fs::write(root.join("root_file.rs"), "// root")?;
+
+    let config_content = r#"
+lintp:
+  custom-matchers:
+    in-tests: 'contains($PATH, "/tests/")'
+  config:
+    .rs: 'in-tests || endsWith($PARENT, "root-probe")'
+  ignore: []
+"#;
+    // Give the temp root a knowable suffix for the PARENT assertion
+    let probe = root.join("root-probe");
+    std::fs::create_dir(&probe)?;
+    std::fs::rename(root.join("root_file.rs"), probe.join("root_file.rs"))?;
+    std::fs::rename(root.join("tests"), probe.join("tests"))?;
+
+    let config: Config = serde_yaml::from_str(config_content)?;
+    let mut parsed_matchers = HashMap::new();
+    for (name, expr) in &config.lintp.custom_matchers {
+        parsed_matchers.insert(name.clone(), parse_expression(expr)?);
+    }
+    let parsed_config = ParsedConfig {
+        raw: config,
+        parsed_matchers,
+        parsed_rules: HashMap::new(),
+    };
+
+    let results = run_lint(&probe, &parsed_config, false)?;
+    for result in &results {
+        assert!(
+            matches!(result, LintResult::Success(_)),
+            "PATH/PARENT string ops failed: {:?}",
+            result
+        );
+    }
+
+    Ok(())
+}

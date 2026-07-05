@@ -147,10 +147,19 @@ fn apply_rules(
     // Setup evaluation context
     let mut variables = HashMap::new();
     variables.insert("NAME".to_string(), Value::String(name.to_string()));
-    variables.insert("PATH".to_string(), Value::Path(path.to_path_buf()));
+    // PATH and PARENT are exposed as strings: every documented usage is a
+    // string operation (contains($PATH, "/src/"), $PARENT == "."), and the
+    // string functions reject Path values
+    variables.insert(
+        "PATH".to_string(),
+        Value::String(path.display().to_string()),
+    );
 
     if let Some(parent) = path.parent() {
-        variables.insert("PARENT".to_string(), Value::Path(parent.to_path_buf()));
+        variables.insert(
+            "PARENT".to_string(),
+            Value::String(parent.display().to_string()),
+        );
     }
 
     if let Some(ext) = path.extension() {

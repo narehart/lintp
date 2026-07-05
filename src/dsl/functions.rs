@@ -281,7 +281,6 @@ fn find_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
 
     let dir = match &args[0] {
         Value::String(s) => PathBuf::from(s),
-        Value::Path(p) => p.clone(),
         _ => {
             return Err(anyhow::anyhow!(
                 "find() first argument must be a directory path"
