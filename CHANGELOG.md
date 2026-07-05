@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.3 (2026-07-05)
+
+## What's Changed
+* fix: resolve overlapping path scopes deterministically by @narehart in https://github.com/narehart/lintp/pull/60
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.5.2...v0.5.3
+
 ## 0.5.2 (2026-07-05)
 
 ## What's Changed
