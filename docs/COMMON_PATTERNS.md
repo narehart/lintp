@@ -115,6 +115,53 @@ safe-extensions: 'in($EXT, [
 ])'
 ```
 
+## Location-Based Architecture
+
+For repos where each directory has its own convention, structure the config as **default-deny plus directory scopes** instead of one rule with many `$PARENT ==` branches:
+
+```yaml
+lintp:
+  custom-matchers:
+    camelCase: "matches($BASENAME, /^[a-z][a-zA-Z0-9]*$/)"
+    # a source file must have a same-basename test next to it
+    # (exists() patterns are relative to the file's directory)
+    has-sibling-test: 'exists("${$BASENAME}.test.ts")'
+
+  config:
+    .test.ts: "camelCase || true"
+    .ts: "false" # not listed below → not allowed
+
+    "src/ecs/systems/*":
+      .ts:
+        rule: 'endsWith($BASENAME, "System") && camelCase && has-sibling-test'
+        message: "systems are camelCase, end in System, and need a sibling test"
+
+    "src/hooks/*":
+      .ts:
+        rule: "matches($BASENAME, /^use[A-Z][a-zA-Z0-9]*$/)"
+        message: "hooks are named useX"
+
+    "src/constants/*":
+      .ts:
+        rule: 'in($BASENAME, ["character", "inventory", "combat", "settings"])'
+        message: "constants files are named after a game domain"
+```
+
+Three idioms doing the work:
+
+- **Default-deny**: the global `.ts: "false"` makes every location a deliberate decision; a scoped rule overrides it where files belong
+- **Per-scope messages**: failures cite the one convention that applies, not a wall of `||` branches
+- **`in()` allowlists**: exact-name sets read (and diff) better as lists than as `/^(a|b|c)$/` alternations
+
+For directory sets, the same shape applies to `.dir`:
+
+```yaml
+"src/*":
+  .dir:
+    rule: 'in($BASENAME, ["ecs", "hooks", "constants", "ui"])'
+    message: "new src/ directories must be added to lintp.yml"
+```
+
 ## Usage in Configuration
 
 To use these patterns in your `lintp.yml`, simply reference them in your `custom-matchers` section:
