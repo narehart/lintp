@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.2 (2026-07-05)
+
+## What's Changed
+* docs: document directory-scoped rules by @narehart in https://github.com/narehart/lintp/pull/58
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.5.1...v0.5.2
+
 ## 0.5.1 (2026-07-05)
 
 ## What's Changed
