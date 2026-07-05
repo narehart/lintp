@@ -5,10 +5,28 @@ lintp:
     upper-snake: "matches($BASENAME, /^[A-Z0-9]+(?:_[A-Z0-9]+)*$/)"
     kebab-test: 'matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*\.test$/)'
 
+    # location matchers (paths are relative to the repo root; run lintp
+    # from the root, as CI does)
+    root: '$PARENT == "."'
+    in-tests: 'contains($PATH, "/tests/")'
+    in-benches: 'contains($PATH, "/benches/")'
+    in-docs: 'contains($PATH, "/docs/")'
+
+    # naming shapes
+    rust-test-name: 'endsWith($BASENAME, "_tests") || startsWith($BASENAME, "test_")'
+    bench-name: 'endsWith($BASENAME, "_bench")'
+
+    # explicit allowlists — a new root file or directory is a deliberate
+    # decision, so it must be added here to pass
+    allowed-root-md: 'in($BASENAME, ["README", "CHANGELOG", "CONTRIBUTING"])'
+    allowed-root-json: 'in($NAME, ["package.json", "package-lock.json", "tsconfig.json", "tsconfig.build.json", "release-please-config.json", ".release-please-manifest.json"])'
+    allowed-root-plain: 'in($NAME, ["LICENSE", ".gitignore", ".prettierignore", ".prettierrc", ".editorconfig", ".tool-versions"])'
+    allowed-root-dir: 'in($BASENAME, ["src", "tests", "scripts", "docs", "benches", "bin"])'
+
   config:
     .rs:
-      rule: "snake-case"
-      message: "Rust sources are snake_case so filenames read as the module paths they become"
+      rule: "snake-case && (!in-tests || rust-test-name) && (!in-benches || bench-name)"
+      message: "Rust sources are snake_case; tests/ files end in _tests (helpers start with test_), benches/ files end in _bench"
     .pest:
       rule: "snake-case"
       message: "Grammar files use the same snake_case as the Rust modules that include them"
@@ -16,19 +34,37 @@ lintp:
       rule: "kebab-test"
       message: "TypeScript tests are <name>.test.ts, named after the kebab-case file they test"
     .config.ts:
-      rule: "true" # tool-mandated names (vitest.config.ts, commitlint.config.ts)
+      rule: "root" # tool-mandated names (vitest.config.ts, commitlint.config.ts) live at the root
     .ts:
-      rule: "kebab-case"
-      message: "TypeScript files are kebab-case — capitals invite cross-platform casing bugs"
+      rule: "kebab-case && !root"
+      message: "TypeScript files are kebab-case and live in src/ or scripts/, not the repo root"
+    .mjs:
+      rule: 'root && $NAME == "eslint.config.mjs"'
+      message: "The only .mjs file is eslint's root config"
     .md:
-      rule: "kebab-case || upper-snake"
-      message: "Markdown is kebab-case, except UPPER_SNAKE repo meta docs (README, docs/DSL_REFERENCE)"
+      rule: "(root && allowed-root-md) || (in-docs && upper-snake)"
+      message: "Markdown is either a root meta file (README, CHANGELOG, CONTRIBUTING) or an UPPER_SNAKE doc in docs/"
     .html:
-      rule: "kebab-case"
-      message: "Site pages are kebab-case — they become the public URLs"
+      rule: "kebab-case && in-docs"
+      message: "Site pages are kebab-case and live in docs/ — they become the public URLs"
+    .json:
+      rule: "!root || allowed-root-json"
+      message: "New root-level JSON files must be added to the allowed-root-json list in lintp.yml"
+    .yml:
+      rule: '!root || $NAME == "lintp.yml"'
+      message: "Root YAML is lintp.yml only; workflow YAML lives in .github/"
+    .toml:
+      rule: '!root || $NAME == "Cargo.toml"'
+      message: "Root TOML is Cargo.toml only"
+    .lock:
+      rule: '!root || in($NAME, ["Cargo.lock"])'
+      message: "Root lockfiles are Cargo.lock only (package-lock.json is covered by the JSON rule)"
     .dir:
-      rule: "kebab-case"
-      message: "Directories are short kebab-case words"
+      rule: "kebab-case && (!root || allowed-root-dir)"
+      message: "Directories are short kebab-case words; new root directories must be added to allowed-root-dir in lintp.yml"
+    .*:
+      rule: "!root || allowed-root-plain"
+      message: "New root-level files must be added to the allowed-root-plain list in lintp.yml"
 
   ignore:
     - node_modules
@@ -36,7 +72,6 @@ lintp:
     - dist
     - _site
     - coverage
-    - bin
     - .git
     - .github
     - .husky
