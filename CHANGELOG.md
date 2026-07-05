@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0 (2026-07-05)
+
+## What's Changed
+* feat: stricter dogfood config and root cleanup by @narehart in https://github.com/narehart/lintp/pull/54
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.4.1...v0.5.0
+
 ## 0.4.1 (2026-07-05)
 
 ## What's Changed
