@@ -65,7 +65,10 @@ pub fn create_test_evaluation_context<'a>(
         .map_or("".to_string(), |n| n.to_string_lossy().to_string());
 
     variables.insert("NAME".to_string(), Value::String(name.clone()));
-    variables.insert("PATH".to_string(), Value::Path(path.to_path_buf()));
+    variables.insert(
+        "PATH".to_string(),
+        Value::String(path.display().to_string()),
+    );
 
     if let Some(ext) = path.extension() {
         variables.insert(
@@ -82,7 +85,10 @@ pub fn create_test_evaluation_context<'a>(
     }
 
     if let Some(parent) = path.parent() {
-        variables.insert("PARENT".to_string(), Value::Path(parent.to_path_buf()));
+        variables.insert(
+            "PARENT".to_string(),
+            Value::String(parent.display().to_string()),
+        );
     }
 
     EvaluationContext {

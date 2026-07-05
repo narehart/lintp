@@ -14,12 +14,18 @@ fn create_test_context<'a>(
 ) -> EvaluationContext<'a> {
     let mut variables = HashMap::new();
     variables.insert("NAME".to_string(), Value::String("test.js".to_string()));
-    variables.insert("PATH".to_string(), Value::Path(path.to_path_buf()));
+    variables.insert(
+        "PATH".to_string(),
+        Value::String(path.display().to_string()),
+    );
     variables.insert("EXT".to_string(), Value::String("js".to_string()));
     variables.insert("BASENAME".to_string(), Value::String("test".to_string()));
 
     if let Some(parent) = path.parent() {
-        variables.insert("PARENT".to_string(), Value::Path(parent.to_path_buf()));
+        variables.insert(
+            "PARENT".to_string(),
+            Value::String(parent.display().to_string()),
+        );
     }
 
     EvaluationContext {
