@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 (2026-07-05)
+
+## What's Changed
+* feat: brace alternation in rule keys and scope globs by @narehart in https://github.com/narehart/lintp/pull/62
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.5.3...v0.6.0
+
 ## 0.5.3 (2026-07-05)
 
 ## What's Changed
