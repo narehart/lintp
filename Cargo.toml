@@ -68,6 +68,14 @@ criterion = "0.5"
 name = "lint_bench"
 harness = false
 
+[profile.release]
+# Reduce binary size and retain release-build performance.
+strip = "symbols"
+lto = "thin"
+codegen-units = 1
+# This CLI does not recover from panics.
+panic = "abort"
+
 [[test]]
 name = "parser_tests"
 path = "tests/parser_tests.rs"
