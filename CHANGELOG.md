@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 (2026-07-05)
+
+## What's Changed
+* fix: surface two silent dsl failures and correct the reference docs by @narehart in https://github.com/narehart/lintp/pull/56
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.5.0...v0.5.1
+
 ## 0.5.0 (2026-07-05)
 
 ## What's Changed
