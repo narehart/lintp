@@ -8,12 +8,14 @@ use crate::dsl::ast::Expression;
 use crate::dsl::parser::parse_expression;
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     #[serde(rename = "lintp")]
     pub lintp: LintPConfig,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LintPConfig {
     #[serde(rename = "custom-matchers", default)]
     pub custom_matchers: HashMap<String, String>,
@@ -37,6 +39,32 @@ pub struct RuleEntry {
 pub struct RuleConfig {
     pub global_rules: HashMap<String, RuleEntry>,
     pub path_rules: HashMap<String, HashMap<String, RuleEntry>>,
+}
+
+/// Rule keys are extension patterns and must start with '.'; anything else
+/// would never match a file (the rule-key lookup filters on the leading dot)
+/// and so would be silently inert — the classic case being a path scope
+/// mis-indented so its 'rule:' key turns the whole scope into a rule entry.
+fn validate_rule_key<E: serde::de::Error>(key: &str, scope: Option<&str>) -> Result<(), E> {
+    if key.starts_with('.') {
+        return Ok(());
+    }
+    let location = match scope {
+        Some(path) => format!(" under path scope '{}'", path),
+        None => String::new(),
+    };
+    let hint = if key.contains('/') || key.contains('*') {
+        format!(
+            " — if '{}' is meant to scope rules to a path, nest extension rules under it (e.g. \"{}\": {{ .js: ... }})",
+            key, key
+        )
+    } else {
+        String::new()
+    };
+    Err(E::custom(format!(
+        "Invalid rule key '{}'{}: rule keys are extension patterns starting with '.' (.js, .test.ts, .dir, .*){}",
+        key, location, hint
+    )))
 }
 
 // Custom deserializer for RuleConfig that rejects invalid values
@@ -73,6 +101,7 @@ where
         // Process the value based on its type
         match value {
             Value::String(s) => {
+                validate_rule_key::<D::Error>(&key, None)?;
                 global_rules.insert(
                     key,
                     RuleEntry {
@@ -86,9 +115,25 @@ where
                 // (`{rule: ..., message: ...}`); any other mapping is a
                 // path-scoped block of extension rules.
                 if nested_map.contains_key(Value::String("rule".to_string())) {
+                    validate_rule_key::<D::Error>(&key, None)?;
                     let entry = rule_entry_from_mapping::<D>(&key, nested_map)?;
                     global_rules.insert(key, entry);
                     continue;
+                }
+
+                // The key is a path scope: its glob must compile, and an
+                // empty scope is a mistake, not a no-op
+                if let Err(e) = glob::Pattern::new(&key) {
+                    return Err(D::Error::custom(format!(
+                        "Invalid glob pattern for path scope '{}': {}",
+                        key, e
+                    )));
+                }
+                if nested_map.is_empty() {
+                    return Err(D::Error::custom(format!(
+                        "Path scope '{}' has no rules",
+                        key
+                    )));
                 }
 
                 let mut rule_map = HashMap::new();
@@ -119,6 +164,7 @@ where
                         }
                     };
 
+                    validate_rule_key::<D::Error>(&nested_key, Some(&key))?;
                     rule_map.insert(nested_key, entry);
                 }
 
@@ -199,6 +245,24 @@ pub fn load_config(path: &Path) -> Result<ParsedConfig> {
 
     let config: Config = serde_yaml::from_str(&config_str)
         .with_context(|| format!("Failed to parse config file: {}", path.display()))?;
+
+    // Ignore patterns are compiled at lint time; compile them here too so
+    // a bad pattern fails at load with the config location
+    for pattern in &config.lintp.ignore {
+        glob::Pattern::new(pattern)
+            .map_err(|e| anyhow::anyhow!("Invalid ignore pattern '{}': {}", pattern, e))?;
+    }
+
+    // A matcher named after a boolean literal can never be referenced —
+    // the parser resolves 'true'/'false' to booleans first
+    for name in config.lintp.custom_matchers.keys() {
+        if name == "true" || name == "false" {
+            return Err(anyhow::anyhow!(
+                "Invalid matcher name '{}': shadowed by the boolean literal",
+                name
+            ));
+        }
+    }
 
     // Parse custom matchers
     let parsed_matchers = parse_custom_matchers(&config.lintp.custom_matchers)?;

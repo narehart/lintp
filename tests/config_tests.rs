@@ -279,3 +279,112 @@ lintp:
 
     Ok(())
 }
+
+/// Every config-shape mistake that would otherwise be silently inert must
+/// fail at load time with a message naming the problem.
+#[test]
+fn test_config_load_rejects_silent_footguns() -> Result<()> {
+    let cases: &[(&str, &str, &str)] = &[
+        (
+            "non-dot global rule key",
+            r#"
+lintp:
+  config:
+    js: "kebab-case"
+"#,
+            "Invalid rule key 'js'",
+        ),
+        (
+            "path scope mis-indented into a rule entry",
+            r#"
+lintp:
+  config:
+    "src/*":
+      rule: "kebab-case"
+"#,
+            "nest extension rules under it",
+        ),
+        (
+            "non-dot key inside a path scope",
+            r#"
+lintp:
+  config:
+    "src/*":
+      js: "kebab-case"
+"#,
+            "under path scope 'src/*'",
+        ),
+        (
+            "empty path scope",
+            r#"
+lintp:
+  config:
+    "src/*": {}
+"#,
+            "has no rules",
+        ),
+        (
+            "typo'd top-level section silently dropping matchers",
+            r#"
+lintp:
+  custom_matchers:
+    kebab-case: "matches($BASENAME, /^[a-z]+$/)"
+  config:
+    .js: "true"
+"#,
+            "unknown field",
+        ),
+        (
+            "invalid path-scope glob",
+            r#"
+lintp:
+  config:
+    "src/[*":
+      .js: "true"
+"#,
+            "Invalid glob pattern for path scope",
+        ),
+        (
+            "invalid ignore pattern",
+            r#"
+lintp:
+  config:
+    .js: "true"
+  ignore:
+    - "[bad"
+"#,
+            "Invalid ignore pattern",
+        ),
+        (
+            "matcher shadowed by a boolean literal",
+            r#"
+lintp:
+  custom-matchers:
+    "true": "$EXT == \"js\""
+  config:
+    .js: "true"
+"#,
+            "shadowed by the boolean literal",
+        ),
+    ];
+
+    for (name, yaml, expected) in cases {
+        let config = create_test_config(yaml)?;
+        let result = load_config(&config.config_path);
+        let err = format!(
+            "{:#}",
+            result
+                .err()
+                .unwrap_or_else(|| panic!("case '{}' should fail to load", name))
+        );
+        assert!(
+            err.contains(expected),
+            "case '{}': error should mention '{}', got: {}",
+            name,
+            expected,
+            err
+        );
+    }
+
+    Ok(())
+}
