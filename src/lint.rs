@@ -162,12 +162,14 @@ fn apply_rules(
         );
     }
 
-    if let Some(ext) = path.extension() {
-        variables.insert(
-            "EXT".to_string(),
-            Value::String(ext.to_string_lossy().to_string()),
-        );
-    }
+    // EXT is always present — empty for extensionless files — so a rule
+    // like `$EXT == "js"` evaluates to false on LICENSE instead of
+    // aborting the whole run with "Unknown variable: EXT"
+    let ext = path
+        .extension()
+        .map(|e| e.to_string_lossy().to_string())
+        .unwrap_or_default();
+    variables.insert("EXT".to_string(), Value::String(ext));
 
     let basename = path
         .file_stem()

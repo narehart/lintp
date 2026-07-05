@@ -105,10 +105,18 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
         }
 
         Rule::add_expr | Rule::mul_expr => {
-            // For simplicity, we're not implementing arithmetic operators in this example
-            // but we parse them as if they were there
+            // Arithmetic is unimplemented; the grammar accepts it so we can
+            // reject it with a real message instead of silently dropping
+            // operands ("a" + "b" == "ab" used to evaluate as "a" == "ab")
             let mut inner = pair.into_inner();
-            parse_expression_pair(inner.next().unwrap())
+            let first = inner.next().unwrap();
+            if let Some(op) = inner.next() {
+                return Err(anyhow::anyhow!(
+                    "Arithmetic operator '{}' is not supported; compare count() results or build strings with ${{...}} templates instead",
+                    op.as_str()
+                ));
+            }
+            parse_expression_pair(first)
         }
 
         Rule::unary_expr => {

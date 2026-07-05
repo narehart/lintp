@@ -284,6 +284,16 @@ count(["a", "b", "c"])                      # List length (3)
 
 ### Collection Functions
 
+#### List indexing (`list[n]`)
+
+Any list expression can be indexed (zero-based). Out-of-range indexes are
+an error, so guard with `count()` when the list may be empty.
+
+```yaml
+siblings("*.config")[0]                     # First config sibling
+count(children("*")) > 0 && children("*")[0] == "index.ts"
+```
+
 #### `in(item, list)`
 
 Check if item exists in list.
@@ -342,7 +352,7 @@ any(siblings("*"), contains($item, "test"))
 any(children("*"), startsWith($item, "index"))
 
 # Check for configuration files
-any(find(".", "*"), endsWith($item, ".config.js"))
+any(find(".", "**/*"), endsWith($item, ".config.js"))
 ```
 
 #### `all(collection, expression)`
@@ -358,7 +368,7 @@ all(children("*"), !contains($item, " "))
 
 # All TypeScript files have proper extensions
 all(
-  filter(find(".", "*"), contains($item, "typescript")),
+  filter(find(".", "**/*"), contains($item, "typescript")),
   endsWith($item, ".ts")
 )
 ```
@@ -399,38 +409,35 @@ children("src/*")                           # Files in src subdirectory
 
 #### `find(path, pattern)`
 
-Find files recursively from path.
+Find files under `path` matching a glob pattern. The pattern is joined to
+the path, so `*` matches one directory level and `**` recurses.
 
 ```yaml
-find(".", "*")                              # All files from current dir
-find("./src", "*.ts")                       # TypeScript files in src
-find(".", "*.test.*")                       # All test files
-find("/project", "package.json")            # Package files in project
+find("./src", "*.ts")                       # TypeScript files directly in src
+find("./src", "**/*.ts")                    # TypeScript files anywhere under src
+find(".", "**/*.test.*")                    # All test files, recursively
+find(".", "*")                              # Entries at the top level only
 ```
 
 ## String Templates
 
-String templates allow embedding expressions within strings using `${...}` syntax.
-
-### Basic Templates
-
-```yaml
-# Simple variable substitution
-rule: 'matches($NAME, ${pattern_variable})'
-
-# Expression in template
-rule: 'contains($PATH, ${$PARENT + "/tests"})'
-```
-
-### Advanced Templates
+String templates embed an expression inside a string literal using
+`${...}`; the expression result is substituted into the string.
 
 ```yaml
-# Function result in template
-rule: 'matches($NAME, ${siblings("*.config")[0]})'
+# Every component must have a test named after it
+rule: 'in("${$BASENAME}.test.tsx", siblings("*.test.tsx"))'
 
-# Complex expression
-rule: 'equals($BASENAME, ${without(find(".", "*.main")[0], ".main")})'
+# A module entry file must sit in a directory of the same name
+# (single quotes inside a template inside a double-quoted string)
+rule: |
+  endsWith($PARENT, "${without($NAME, '.mod.ts')}")
 ```
+
+Any expression works inside `${...}` — variables, function calls, or
+compositions of both. Templates are for building strings; comparisons and
+concatenation-like logic belong in the expression itself (`==`,
+`endsWith`, `contains`), not inside the template.
 
 ## Complex Expression Examples
 
