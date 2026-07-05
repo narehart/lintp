@@ -101,6 +101,25 @@ Rule keys are **suffix patterns**, not just extensions: a file matches every key
 
 Suffix matching has one subtlety with dotfiles: a file literally named `.rules` also matches a `.rules:` key, but as a dotfile its `$EXT` is `""` and its `$BASENAME` is the full dotted name. Write `$EXT == "rules"` when a rule should apply only to real `.rules` extensions — or use the behavior deliberately: `.gitignore:` is a valid key for targeting that exact file.
 
+### Directory-scoped rules
+
+A top-level key that is a glob pattern holds its own suffix→rule map, applied only to matching paths — and it **overrides** the global rule for the same suffix there. Globs match the path relative to the linted directory, and `*` crosses `/`, so `src/ui/*` covers the whole subtree.
+
+```yaml title="lintp.yml — per-directory conventions"
+config:
+  .ts: "false" # default-deny: a .ts file must live in a listed location
+  "src/ecs/systems/*":
+    .ts:
+      rule: 'matches($BASENAME, /^[a-z][a-zA-Z0-9]*System$/) && exists("${$BASENAME}.test.ts")'
+      message: "systems are camelCase, end in System, and need a sibling test"
+  "src/hooks/*":
+    .ts:
+      rule: "matches($BASENAME, /^use[A-Z][a-zA-Z0-9]*$/)"
+      message: "hooks are named useX"
+```
+
+Prefer this over one global rule that chains `($PARENT == "./src/x" && ...) || ...` branches: each location gets its own message, and failures point at the one rule that applies instead of printing the whole chain.
+
 ```yaml title="lintp.yml — full structure"
 lintp:
   custom-matchers: # reusable pattern definitions
