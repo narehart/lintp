@@ -321,11 +321,10 @@ lintp:
     Ok(())
 }
 
-/// Convention: targeting a set of specific directories — expressed as
-/// one path scope per directory (glob braces are not supported; the
-/// outcome is identical).
+/// Convention: targeting a set of specific directories with brace
+/// alternation in the scope glob.
 #[test]
-fn covers_brace_targeting_equivalent() -> Result<()> {
+fn covers_brace_targeting() -> Result<()> {
     let dir = tempfile::tempdir()?;
     touch(dir.path(), "api/auth/login_handler.go")?;
     touch(dir.path(), "api/billing/invoiceHandler.go")?;
@@ -336,9 +335,7 @@ lintp:
   custom-matchers:
     go-snake: "matches($BASENAME, /^[a-z0-9]+(?:_[a-z0-9]+)*$/)"
   config:
-    "api/auth/*":
-      .go: "go-snake"
-    "api/billing/*":
+    "api/{auth,billing}/*":
       .go: "go-snake"
   ignore: []
 "#,

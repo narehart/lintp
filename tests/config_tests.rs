@@ -388,3 +388,68 @@ lintp:
 
     Ok(())
 }
+
+/// Brace-expanded rule keys: ".{png,jpg}" assigns the same entry to each
+/// suffix, at the global level and inside path scopes; scope globs expand
+/// too, and malformed braces fail at load.
+#[test]
+fn test_brace_expanded_keys() -> Result<()> {
+    let config = create_test_config(
+        r#"
+lintp:
+  custom-matchers:
+    camel: "matches($BASENAME, /^[a-z][a-zA-Z0-9]*$/)"
+  config:
+    ".{png,jpg,webp}":
+      rule: "camel"
+      message: "images are camelCase"
+    ".{ttf,otf}": "true"
+    ".test.{ts,tsx}": "true"
+    "assets/*":
+      ".{svg,gif}": "camel"
+    "api/{auth,billing}/*":
+      .go: "camel"
+"#,
+    )?;
+    let parsed = load_config(&config.config_path)?;
+    let global = &parsed.raw.lintp.config.global_rules;
+    for key in [".png", ".jpg", ".webp"] {
+        let entry = global.get(key).unwrap_or_else(|| panic!("missing {}", key));
+        assert_eq!(entry.rule, "camel");
+        assert_eq!(entry.message.as_deref(), Some("images are camelCase"));
+    }
+    assert!(global.contains_key(".ttf") && global.contains_key(".otf"));
+    // brace groups compose with suffix keys
+    assert!(global.contains_key(".test.ts") && global.contains_key(".test.tsx"));
+    let scoped = &parsed.raw.lintp.config.path_rules["assets/*"];
+    assert!(scoped.contains_key(".svg") && scoped.contains_key(".gif"));
+    // scope globs expand into separate scopes
+    assert!(parsed
+        .raw
+        .lintp
+        .config
+        .path_rules
+        .contains_key("api/auth/*"));
+    assert!(parsed
+        .raw
+        .lintp
+        .config
+        .path_rules
+        .contains_key("api/billing/*"));
+
+    for (yaml, expected) in [
+        ("\"{png\": \"true\"", "unbalanced braces"),
+        ("\".{png,}\": \"true\"", "empty alternative"),
+        ("\".{a{b,c}}\": \"true\"", "nested braces"),
+        ("\".{png,jpg\": \"true\"", "unbalanced braces"),
+    ] {
+        let bad = create_test_config(&format!("\nlintp:\n  config:\n    {}\n", yaml))?;
+        let err = match load_config(&bad.config_path) {
+            Err(e) => format!("{:#}", e),
+            Ok(_) => panic!("'{}' should fail to load", yaml),
+        };
+        assert!(err.contains(expected), "'{}': got {}", yaml, err);
+    }
+
+    Ok(())
+}
