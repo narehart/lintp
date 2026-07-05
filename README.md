@@ -102,12 +102,13 @@ Rule keys are **suffix patterns**, not just extensions: a file matches every key
 ```yaml title="lintp.yml — full structure"
 lintp:
   custom-matchers: # reusable pattern definitions
-    pattern-name: "DSL expression"
+    kebab-case: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)"
+    pascal-case: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
   config: # suffix pattern → rule
-    .test.js: "test-file-naming"
+    .test.js: 'matches($BASENAME, /^[a-z0-9-]+\.test$/)'
     .js: "kebab-case"
-    .dir: "kebab-case || PascalCase"
-    .*: "basic-naming-rules"
+    .dir: "kebab-case || pascal-case"
+    .*: '!contains($NAME, " ")'
   ignore: # glob patterns to skip
     - node_modules
     - "build/**"

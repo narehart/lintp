@@ -48,12 +48,12 @@ rule: 'endsWith($PARENT, "/tests")'
 ### String Literals
 
 ```yaml
-# Double quotes (supports string templates)
+# Double quotes (supports ${...} string templates)
 rule: '$NAME == "exact-match.js"'
-rule: "matches($NAME, ${pattern_var})"
+rule: 'endsWith($PATH, "${$NAME}")'
 
-# Single quotes (literal strings only)
-rule: '$NAME == \'literal-string.js\''
+# Single quotes (literal strings, no templates)
+rule: "$NAME == 'literal-string.js'"
 ```
 
 ### Integer Literals

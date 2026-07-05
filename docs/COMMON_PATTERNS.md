@@ -130,6 +130,10 @@ lintp:
 
     # Define your specific rules
     my-custom-rule: "kebab-case && js-file"
+
+  config:
+    .js: "my-custom-rule"
+    .tsx: "react-component"
 ```
 
 ## Cross-References <!-- site:skip -->
