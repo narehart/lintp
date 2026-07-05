@@ -103,7 +103,7 @@ Suffix matching has one subtlety with dotfiles: a file literally named `.rules` 
 
 ### Directory-scoped rules
 
-A top-level key that is a glob pattern holds its own suffix→rule map, applied only to matching paths — and it **overrides** the global rule for the same suffix there. Globs match the path relative to the linted directory, and `*` crosses `/`, so `src/ui/*` covers the whole subtree.
+A top-level key that is a glob pattern holds its own suffix→rule map, applied only to matching paths — and it **overrides** the global rule for the same suffix there. Globs match the path relative to the linted directory, and `*` crosses `/`, so `src/ui/*` covers the whole subtree. When several scopes match the same path, the most specific (longest pattern) wins: `src/ui/*` beats `src/*` for files under `src/ui/`.
 
 ```yaml title="lintp.yml — per-directory conventions"
 config:
