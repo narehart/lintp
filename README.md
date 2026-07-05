@@ -99,6 +99,8 @@ custom-matchers:
 
 Rule keys are **suffix patterns**, not just extensions: a file matches every key its path ends with, and the longest matching suffix wins. `Button.test.tsx` matches both `.tsx` and `.test.tsx`, and the `.test.tsx` rule applies. `.*` applies only when no other key matches; `.dir` targets directories.
 
+Suffix matching has one subtlety with dotfiles: a file literally named `.rules` also matches a `.rules:` key, but as a dotfile its `$EXT` is `""` and its `$BASENAME` is the full dotted name. Write `$EXT == "rules"` when a rule should apply only to real `.rules` extensions — or use the behavior deliberately: `.gitignore:` is a valid key for targeting that exact file.
+
 ```yaml title="lintp.yml — full structure"
 lintp:
   custom-matchers: # reusable pattern definitions
