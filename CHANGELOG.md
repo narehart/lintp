@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.1 (2026-07-05)
+
+## What's Changed
+* build: optimize release binaries by @eightseventhreethree in https://github.com/narehart/lintp/pull/64
+
+## New Contributors
+* @eightseventhreethree made their first contribution in https://github.com/narehart/lintp/pull/64
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.6.0...v0.6.1
+
 ## 0.6.0 (2026-07-05)
 
 ## What's Changed
