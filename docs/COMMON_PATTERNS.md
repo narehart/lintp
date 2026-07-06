@@ -169,7 +169,9 @@ For directory sets, the same shape applies to `.dir`:
 ```yaml
 "src/*":
   .dir:
-    rule: 'in($BASENAME, ["ecs", "hooks", "constants", "ui"])'
+    # "*" crosses "/", so this scope also sees nested directories —
+    # the $PARENT guard applies the allowlist only to src/'s direct children
+    rule: '!endsWith($PARENT, "/src") || in($BASENAME, ["ecs", "hooks", "constants", "ui"])'
     message: "new src/ directories must be added to lintp.yml"
 ```
 

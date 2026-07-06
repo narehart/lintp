@@ -16,9 +16,15 @@ A powerful file system linter that validates directory structures and file namin
 File-naming linters already exist — [ls-lint](https://ls-lint.org/) is a good one, and if your conventions are purely "this extension uses this case style", it may be all you need. lintp is for the conventions a name-only check can't express, where a rule depends on what exists _around_ a file:
 
 ```yaml title="lintp.yml — a relational rule"
-# every component is PascalCase and has a test file sitting next to it
-.tsx:
-  rule: 'pascal-case && in("${$BASENAME}.test.tsx", siblings("*.test.tsx"))'
+lintp:
+  custom-matchers:
+    pascal-case: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
+  config:
+    # every component is PascalCase and has a test file sitting next to it
+    .tsx:
+      rule: 'pascal-case && in("${$BASENAME}.test.tsx", siblings("*.test.tsx"))'
+    # longest suffix wins: test files match .test.tsx, not the component rule
+    .test.tsx: 'matches($BASENAME, /^[A-Z][a-zA-Z0-9]*\.test$/)'
 ```
 
 Rules are expressions in a small DSL with functions like `siblings()`, `children()`, `find()`, and `exists()`, so a rule can look at a file's context — not just its name.
@@ -124,6 +130,8 @@ A key can group several suffixes with brace alternation — each expansion gets 
 
 ```yaml title="lintp.yml — grouped suffixes"
 lintp:
+  custom-matchers:
+    camelCase: "matches($BASENAME, /^[a-z][a-zA-Z0-9]*$/)"
   config:
     ".{png,jpg,jpeg,gif,webp,svg}":
       rule: "camelCase"
@@ -174,6 +182,8 @@ Any rule can be a map with a `message` that replaces the raw expression in failu
 
 ```yaml title="lintp.yml — custom message"
 lintp:
+  custom-matchers:
+    component-file: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
   config:
     .tsx:
       rule: "component-file"
@@ -234,7 +244,7 @@ Exit code `0` when everything passes, `1` on any violation or configuration erro
 ✗ No config file found
   → create lintp.yml or pass --config path/to/config.yml
 
-✗ Invalid YAML in config file: expected ':' at line 5
+✗ Failed to parse config file: mapping values are not allowed in this context at line 3
   → quote DSL expressions:  rule: '$NAME == "test"'
 
 ✗ Failed to parse rule: kebab-case && js file
