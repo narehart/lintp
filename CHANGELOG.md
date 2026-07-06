@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.2 (2026-07-06)
+
+## What's Changed
+* fix: pre-launch review — UTF-8 panic, launcher hardening, doc accuracy by @narehart in https://github.com/narehart/lintp/pull/66
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.6.1...v0.6.2
+
 ## 0.6.1 (2026-07-05)
 
 ## What's Changed
