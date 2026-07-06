@@ -8,7 +8,7 @@ A powerful file system linter that validates directory structures and file namin
 
 ## Installation <!-- note: npm, from source -->
 
-npm ships a prebuilt binary for macOS, Linux, and Windows (x64/arm64) via `optionalDependencies`. If no prebuilt package matches your platform, the launcher falls back to a checksum-verified binary from the GitHub release. The npm package is named `lintp-cli` (npm reserves the bare name) — the installed command is `lintp`.
+npm ships a prebuilt binary for macOS, Linux, and Windows (x64/arm64) via `optionalDependencies`. On Windows ARM64, the x64 binary runs through Windows' built-in emulation layer. If no prebuilt package matches your platform, the launcher falls back to a checksum-verified binary from the GitHub release (the checksum guards download integrity, not tamper-proof supply-chain verification). The npm package is named `lintp-cli` (npm reserves the bare name) — the installed command is `lintp`.
 
 ```bash title="shell — install via npm"
 # run without installing
@@ -66,10 +66,13 @@ Run it. Every file and directory is checked against the longest-matching suffix 
 
 ```text title="shell — first run"
 $ lintp
-✓ ./src/utils.js
-✓ ./src/UserManager.ts
-✗ ./src/badFile.js - .js - Does not match rule: kebab-case && js-file (failed: kebab-case)
+✓ ./lintp.yml
+✓ ./tests
 ✓ ./tests/user-tests.js
+✓ ./src
+✗ ./src/badFile.js - .js - Does not match rule: kebab-case && js-file (failed: kebab-case)
+✓ ./src/UserManager.ts
+✓ ./src/utils.js
 Some files or directories do not match the configured rules.
 ```
 

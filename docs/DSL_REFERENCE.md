@@ -10,13 +10,25 @@ The lintp DSL is a powerful expression language for defining file and directory 
 
 ### Built-in File Variables
 
-| Variable    | Description                       | Example Value                  |
-| ----------- | --------------------------------- | ------------------------------ |
-| `$NAME`     | Full filename including extension | `"Button.tsx"`                 |
-| `$BASENAME` | Filename without extension        | `"Button"`                     |
-| `$EXT`      | File extension (without dot)      | `"tsx"`                        |
-| `$PATH`     | Full file path                    | `"/src/components/Button.tsx"` |
-| `$PARENT`   | Parent directory path             | `"/src/components"`            |
+| Variable    | Description                       | Example Value                    |
+| ----------- | --------------------------------- | --------------------------------- |
+| `$NAME`     | Full filename including extension | `"Button.tsx"`                    |
+| `$BASENAME` | Filename without extension        | `"Button"`                        |
+| `$EXT`      | File extension (without dot)      | `"tsx"`                           |
+| `$PATH`     | Full file path                    | `"./src/components/Button.tsx"`   |
+| `$PARENT`   | Parent directory path             | `"./src/components"`              |
+
+`$PATH` and `$PARENT` reflect however the CLI was invoked, not a fixed
+absolute form — running `lintp` against the default `.` directory (as the
+README's examples do) produces `./`-prefixed values like the ones above;
+passing an absolute directory argument produces absolute paths instead.
+
+`$EXT` and `$BASENAME` follow the same rule as Rust's `Path::file_stem` /
+`Path::extension`: a name that starts with a dot and has no other dot (like
+`.gitignore`) has no extension, so `$EXT` is `""` and `$BASENAME` is the
+whole `".gitignore"`. A name with more than one dot (like `file.test.js`)
+splits on the *last* dot only, so `$EXT` is `"js"` and `$BASENAME` is
+`"file.test"`.
 
 ### Context Variables
 
@@ -80,6 +92,18 @@ rule: '$EXT == "js" || false'
 
 ### Regular Expression Literals
 
+Regex literals are compiled with Rust's [`regex`](https://docs.rs/regex)
+crate, which guarantees linear-time matching by excluding backtracking
+features. Lookahead, lookbehind, and backreferences aren't supported —
+`matches($NAME, /^(?=x)/)` fails at evaluation time with:
+
+```
+regex parse error:
+    ^(?=x)
+     ^^^
+error: look-around, including look-ahead and look-behind, is not supported
+```
+
 ```yaml
 # Basic regex
 rule: 'matches($NAME, /^[a-z-]+$/)'
@@ -89,6 +113,17 @@ rule: 'matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)'
 
 # Regex with special characters
 rule: 'matches($NAME, /\.test\.(js|ts)$/)'
+```
+
+### Comments
+
+`#` starts a comment that runs to the end of the line, anywhere inside a
+DSL expression.
+
+```yaml
+# Everything from # to end-of-line is ignored, including "&& false" below —
+# this rule evaluates to plain `true`
+rule: 'true # this is a comment && false'
 ```
 
 ### List Literals
@@ -186,21 +221,56 @@ rule: '$BASENAME <= "zzz"'
 rule: '"apple" < "banana"'
 ```
 
+### Arithmetic Operators (not supported)
+
+The grammar recognizes `+`, `-`, `*`, `/`, and `%` between two expressions,
+but the evaluator rejects them rather than silently doing arithmetic (or
+letting `+` slide as string concatenation). Compare `count()` results, or
+build strings with `${...}` templates, instead:
+
+```yaml
+# Fails to parse — arithmetic is not supported
+rule: 'count($NAME) + 1 == 2'
+```
+
+```
+Arithmetic operator '+' is not supported; compare count() results or build strings with ${...} templates instead
+```
+
 ### Operator Precedence
 
-From highest to lowest precedence:
+From loosest to tightest binding — the grammar nests each level inside the
+next, so `||` groups last and function calls / literals / indexing bind
+first:
 
-1. **Unary operators**: `!`, `-` (unary minus)
-2. **Comparison**: `==`, `!=`, `<`, `<=`, `>`, `>=`
-3. **Logical AND**: `&&`
-4. **Logical OR**: `||`
+1. **Logical OR**: `||`
+2. **Logical AND**: `&&`
+3. **Logical NOT**: `!`
+4. **Comparison**: `==`, `!=`, `<`, `<=`, `>`, `>=`
+5. **Additive** (unsupported): `+`, `-`
+6. **Multiplicative** (unsupported): `*`, `/`, `%`
+7. **Unary minus**: `-`
+8. **Primary**: literals, variables, function calls, indexing, `(...)`
+
+Note that `!` binds *looser* than comparison — it wraps the whole
+comparison instead of just its left operand — while unary minus binds
+*tighter* than comparison, since it applies directly to a primary
+expression:
 
 ```yaml
 # Examples of precedence
-rule: '!a == b'        # Equivalent to: (!a) == b
+rule: '!a == b'        # Equivalent to: !(a == b), NOT (!a) == b
 rule: 'a && b || c'    # Equivalent to: (a && b) || c
 rule: 'a || b && c'    # Equivalent to: a || (b && c)
 rule: 'a == b && c'    # Equivalent to: (a == b) && c
+```
+
+`!$EXT == "zzz"` evaluates cleanly on any file — it never raises "NOT
+requires boolean" — because `!` wraps the comparison rather than negating
+`$EXT` on its own:
+
+```yaml
+rule: '!$EXT == "zzz"'   # Equivalent to: !($EXT == "zzz")
 ```
 
 ## Functions
@@ -284,7 +354,7 @@ count(["a", "b", "c"])                      # List length (3)
 
 ### Collection Functions
 
-#### List indexing (`list[n]`)
+#### List and string indexing (`list[n]`, `string[n]`)
 
 Any list expression can be indexed (zero-based). Out-of-range indexes are
 an error, so guard with `count()` when the list may be empty.
@@ -292,6 +362,14 @@ an error, so guard with `count()` when the list may be empty.
 ```yaml
 siblings("*.config")[0]                     # First config sibling
 count(children("*")) > 0 && children("*")[0] == "index.ts"
+```
+
+Strings can be indexed the same way — `$BASENAME[0]` returns the character
+at that index, as a one-character string. Negative indexes and indexes
+past the end of the string are both errors, the same as list indexing:
+
+```yaml
+$BASENAME[0] == "h"                         # First character of the basename
 ```
 
 #### `in(item, list)`
@@ -342,7 +420,8 @@ filter(
 
 #### `any(collection, expression)`
 
-Test if any item matches condition.
+Test if any item matches condition. `any([], ...)` is always `false` —
+there's nothing in an empty collection that could match (vacuous truth).
 
 ```yaml
 # Check if any sibling is a test file
@@ -353,11 +432,16 @@ any(children("*"), startsWith($item, "index"))
 
 # Check for configuration files
 any(find(".", "**/*"), endsWith($item, ".config.js"))
+
+# Always false on an empty collection
+any([], $item == "x") == false
 ```
 
 #### `all(collection, expression)`
 
-Test if all items match condition.
+Test if all items match condition. `all([], ...)` is always `true` —
+every item in an empty collection (there are none) trivially matches
+(vacuous truth).
 
 ```yaml
 # All siblings follow naming convention
@@ -371,19 +455,31 @@ all(
   filter(find(".", "**/*"), contains($item, "typescript")),
   endsWith($item, ".ts")
 )
+
+# Always true on an empty collection
+all([], $item == "x") == true
 ```
 
 ### File System Functions
 
-#### `exists(pattern)`
+#### `exists(pattern)`, `exists(pattern, min)`, `exists(pattern, min, max)`
 
-Check if files matching pattern exist.
+Check if the number of files matching `pattern` falls within `[min, max]`.
+With one argument, `min` defaults to `1` and `max` is unbounded, so
+`exists(pattern)` just checks that at least one match exists. Pass `min`
+and/or `max` to require an exact count or a range:
 
 ```yaml
 exists("package.json")                      # Package file exists
 exists("README.*")                          # Any README file
 exists("src/index.*")                       # Index file in src
 exists("**/*.test.*")                       # Any test files recursively
+
+# Exactly 3 matching files in the current directory
+exists("*.existsmm", 3, 3)
+
+# Between 5 and 10 matches
+exists("*.log", 5, 10)
 ```
 
 #### `siblings(pattern)`
@@ -399,12 +495,17 @@ siblings("index.*")                         # Index files
 
 #### `children(pattern)`
 
-Get files in subdirectories matching pattern.
+Get files in subdirectories matching pattern. `children()` only makes
+sense against a directory; called against a file, it returns an empty
+list rather than an error.
 
 ```yaml
 children("*")                               # All children
 children("*.ts")                            # TypeScript children
 children("src/*")                           # Files in src subdirectory
+
+# On a file (not a directory), children() is always empty
+count(children("*")) == 0
 ```
 
 #### `find(path, pattern)`
@@ -497,6 +598,15 @@ rule: '$UNKNOWN == "test"'    # Error: Unknown variable
 rule: 'unknown_func($NAME)'   # Error: Unknown function
 ```
 
+Not every error surfaces at the same time. Config loading eagerly parses
+every rule and every custom matcher and checks that all matcher references
+resolve, so a reference to a matcher that doesn't exist — a typo, usually —
+fails immediately with the offending rule and its location, before any
+file is linted. Function arity and argument-type errors (like the ones
+above) can only be caught by actually running the expression, so they
+surface the first time a file matching that rule is evaluated — if no file
+ever matches, a broken rule like `matches($NAME)` can sit unnoticed.
+
 ### Best Practices
 
 ```yaml
@@ -511,6 +621,16 @@ custom-matchers:
 
 # Validate inputs to functions
 rule: 'count($NAME) > 0 && matches($NAME, /pattern/)'
+```
+
+Custom matcher names can't be `true` or `false` — the parser resolves
+those two words to boolean literals before it looks up matcher
+references, so a matcher named either one could never be reached, and
+config loading rejects it outright:
+
+```yaml
+custom-matchers:
+  true: 'kebab-case'   # Error: Invalid matcher name 'true': shadowed by the boolean literal
 ```
 
 ## Performance Considerations
