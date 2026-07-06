@@ -6,8 +6,9 @@ use walkdir::WalkDir;
 
 use crate::config::{ParsedConfig, RuleEntry};
 use crate::dsl::ast::{BinaryOperator, Expression};
-use crate::dsl::evaluator::{evaluate, EvaluationContext, FsCache, Value};
+use crate::dsl::evaluator::{evaluate, EvaluationContext, FsCache, RegexCache, Value};
 use crate::dsl::parser::parse_expression;
+use crate::util::forward_slashes;
 
 #[derive(Debug)]
 pub enum LintResult {
@@ -17,6 +18,16 @@ pub enum LintResult {
         rule: String,
         message: String,
     },
+}
+
+/// Caches threaded through an entire lint run so repeated work — parsing a
+/// rule string, compiling a regex, reading a glob'd directory — happens
+/// once per distinct input rather than once per file visited. Bundled into
+/// one struct so passing them around doesn't blow out function arity.
+struct LintCaches<'a> {
+    rules: &'a mut HashMap<String, Expression>,
+    fs: &'a FsCache,
+    regex: &'a RegexCache,
 }
 
 pub fn run_lint(dir: &Path, config: &ParsedConfig, verbose: bool) -> Result<Vec<LintResult>> {
@@ -60,6 +71,16 @@ pub fn run_lint(dir: &Path, config: &ParsedConfig, verbose: bool) -> Result<Vec<
     // for every file in a directory reads that directory once, not O(n) times
     let fs_cache: FsCache = FsCache::default();
 
+    // Regexes are compiled once per distinct pattern and reused across every
+    // file evaluated against a rule, instead of recompiling on every call
+    let regex_cache: RegexCache = RegexCache::default();
+
+    let mut caches = LintCaches {
+        rules: &mut rule_cache,
+        fs: &fs_cache,
+        regex: &regex_cache,
+    };
+
     // Process all files and directories
     for entry in WalkDir::new(dir)
         .min_depth(1)
@@ -95,15 +116,16 @@ pub fn run_lint(dir: &Path, config: &ParsedConfig, verbose: bool) -> Result<Vec<
             .ok_or_else(|| anyhow::anyhow!("Failed to get file name"))?
             .to_string_lossy();
 
-        let is_dir = path.is_dir();
+        // WalkDir already stat'd this entry to build it; asking the entry
+        // instead of re-stat'ing `path` avoids a redundant syscall per file.
+        let is_dir = entry.file_type().is_dir();
         let result = apply_rules(
             &name,
             path,
             is_dir,
             &applicable_rules,
             &config.parsed_matchers,
-            &mut rule_cache,
-            &fs_cache,
+            &mut caches,
         )?;
 
         results.push(result);
@@ -122,19 +144,24 @@ fn is_ignored(path: &Path, ignore_patterns: &[Pattern]) -> bool {
     false
 }
 
-fn find_applicable_rules(
+/// Borrows rather than clones: the returned map holds references into
+/// `global_rules`/`path_rule_patterns`, both of which live for the whole
+/// lint run, so there is no need to clone a `RuleEntry` — or the whole
+/// global-rules map — for every single file visited.
+fn find_applicable_rules<'a>(
     path: &Path,
-    global_rules: &HashMap<String, RuleEntry>,
-    path_rule_patterns: &[(Pattern, &HashMap<String, RuleEntry>)],
-) -> HashMap<String, RuleEntry> {
-    let mut rules = global_rules.clone();
+    global_rules: &'a HashMap<String, RuleEntry>,
+    path_rule_patterns: &'a [(Pattern, &'a HashMap<String, RuleEntry>)],
+) -> HashMap<&'a str, &'a RuleEntry> {
+    let mut rules: HashMap<&str, &RuleEntry> =
+        global_rules.iter().map(|(k, v)| (k.as_str(), v)).collect();
 
     // Find path-specific rules
     for (pattern, pattern_rules) in path_rule_patterns {
         if pattern.matches_path(path) {
             // Merge pattern rules, overriding global rules
-            for (key, value) in *pattern_rules {
-                rules.insert(key.clone(), value.clone());
+            for (key, value) in pattern_rules.iter() {
+                rules.insert(key.as_str(), value);
             }
         }
     }
@@ -146,26 +173,26 @@ fn apply_rules(
     name: &str,
     path: &Path,
     is_dir: bool,
-    rules: &HashMap<String, RuleEntry>,
+    rules: &HashMap<&str, &RuleEntry>,
     custom_matchers: &HashMap<String, Expression>,
-    rule_cache: &mut HashMap<String, Expression>,
-    fs_cache: &FsCache,
+    caches: &mut LintCaches,
 ) -> Result<LintResult> {
     // Setup evaluation context
     let mut variables = HashMap::new();
     variables.insert("NAME".to_string(), Value::String(name.to_string()));
     // PATH and PARENT are exposed as strings: every documented usage is a
     // string operation (contains($PATH, "/src/"), $PARENT == "."), and the
-    // string functions reject Path values
+    // string functions reject Path values. Forward-slash-normalized so
+    // `/`-based rules behave the same on Windows as on Unix.
     variables.insert(
         "PATH".to_string(),
-        Value::String(path.display().to_string()),
+        Value::String(forward_slashes(&path.display().to_string())),
     );
 
     if let Some(parent) = path.parent() {
         variables.insert(
             "PARENT".to_string(),
-            Value::String(parent.display().to_string()),
+            Value::String(forward_slashes(&parent.display().to_string())),
         );
     }
 
@@ -189,7 +216,8 @@ fn apply_rules(
         path,
         custom_matchers,
         item_context: None,
-        fs_cache: Some(fs_cache),
+        fs_cache: Some(caches.fs),
+        regex_cache: Some(caches.regex),
     };
 
     // Get rule to apply
@@ -208,30 +236,30 @@ fn apply_rules(
         let path_str = path.to_string_lossy();
         if let Some(key) = rules
             .keys()
-            .filter(|key| key.starts_with('.') && path_str.ends_with(key.as_str()))
+            .filter(|key| key.starts_with('.') && path_str.ends_with(**key))
             .max_by_key(|key| key.len())
         {
-            extension = key.clone();
+            extension = key.to_string();
         }
 
         // If no specific extension rule found, fallback to .*
-        if !rules.contains_key(&extension) {
+        if !rules.contains_key(extension.as_str()) {
             extension = ".*".to_string();
         }
 
         extension
     };
 
-    if let Some(entry) = rules.get(&rule_key) {
+    if let Some(entry) = rules.get(rule_key.as_str()) {
         let rule_str = &entry.rule;
 
         // Parse the rule once per distinct rule string
-        if !rule_cache.contains_key(rule_str) {
+        if !caches.rules.contains_key(rule_str) {
             let expr = parse_expression(rule_str)
                 .with_context(|| format!("Failed to parse rule: {}", rule_str))?;
-            rule_cache.insert(rule_str.clone(), expr);
+            caches.rules.insert(rule_str.clone(), expr);
         }
-        let rule_expr = &rule_cache[rule_str];
+        let rule_expr = &caches.rules[rule_str];
 
         // Evaluate the rule
         match evaluate(rule_expr, &context)? {

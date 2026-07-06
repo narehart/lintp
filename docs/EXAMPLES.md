@@ -191,6 +191,11 @@ lintp:
 lintp:
   custom-matchers:
     kebab-case: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)"
+    # Angular's generated files chain a type suffix onto the stem
+    # ("my-component.component.ts"), so $BASENAME contains a dot even
+    # after the ".ts" extension is stripped — allow "." as a segment
+    # separator alongside "-".
+    kebab-dotted: "matches($BASENAME, /^[a-z0-9]+(?:[-.][a-z0-9]+)*$/)"
 
     # Angular file patterns
     component-file: 'endsWith($BASENAME, ".component")'
@@ -200,15 +205,26 @@ lintp:
     pipe-file: 'endsWith($BASENAME, ".pipe")'
     guard-file: 'endsWith($BASENAME, ".guard")'
 
-    # Angular structure validation
-    angular-file: "component-file || service-file || module-file || directive-file || pipe-file || guard-file"
-
   config:
-    .ts: 'kebab-case && (angular-file || contains($PATH, "/src/"))'
-    .html: "kebab-case"
-    .css: "kebab-case"
-    .scss: "kebab-case"
-    .spec.ts: "kebab-case"
+    # Dedicated suffix keys catch Angular's "*.<type>.ts" naming before the
+    # generic .ts rule below — the longest matching suffix always wins, and
+    # multi-dot suffixes like ".component.ts" are matched directly.
+    .component.ts: "kebab-dotted && component-file"
+    .service.ts: "kebab-dotted && service-file"
+    .module.ts: "kebab-dotted && module-file"
+    .directive.ts: "kebab-dotted && directive-file"
+    .pipe.ts: "kebab-dotted && pipe-file"
+    .guard.ts: "kebab-dotted && guard-file"
+    .spec.ts: "kebab-dotted"
+
+    # Any other TypeScript file just needs to live under src/
+    .ts: 'kebab-case && contains($PATH, "/src/")'
+
+    # Templates and styles share the same "*.component.html" naming
+    .html: "kebab-dotted"
+    .css: "kebab-dotted"
+    .scss: "kebab-dotted"
+
     .json: "kebab-case"
     .dir: "kebab-case"
 
@@ -239,8 +255,10 @@ lintp:
     has-test: 'any(siblings("*.test.js"), true) || any(find("./tests", "*"), contains($item, $BASENAME))'
 
   config:
-    .js: "kebab-case || (PascalCase && model-file)"
-    .ts: "kebab-case || (PascalCase && model-file)"
+    # PascalCase is allowed for models ("User.js") and for controller
+    # classes ("UserController.js") — everything else is kebab-case.
+    .js: "kebab-case || (PascalCase && (model-file || controller-file))"
+    .ts: "kebab-case || (PascalCase && (model-file || controller-file))"
     .json: "kebab-case"
     .dir: "kebab-case"
 
@@ -343,10 +361,18 @@ lintp:
     # Complete library validation
     valid-library: "has-index && has-package-json"
 
+    # $BASENAME on "index.d.ts" is "index.d" (only the final ".ts" is
+    # stripped), so type declarations are validated against the real
+    # stem — the name with ".d.ts" removed entirely.
+    dts-stem-valid: 'matches(without($NAME, ".d.ts"), /^[A-Z][a-zA-Z0-9]*$/) ||
+      matches(without($NAME, ".d.ts"), /^[a-z0-9]+(?:-[a-z0-9]+)*$/)'
+
   config:
     .ts: "PascalCase || kebab-case"
     .js: "kebab-case"
-    .d.ts: "PascalCase || kebab-case"
+    # The ".d.ts" suffix key is matched before the generic ".ts" rule
+    # (longest suffix wins), so type declarations get their own check.
+    .d.ts: "dts-stem-valid"
     .json: "kebab-case"
     .md: 'kebab-case || in($BASENAME, ["README", "CHANGELOG", "CONTRIBUTING"])'
     .dir: "kebab-case"
@@ -438,14 +464,19 @@ lintp:
     docker-file: 'in($BASENAME, ["Dockerfile", "docker-compose"]) || startsWith($BASENAME, "Dockerfile.")'
     ci-config: 'contains($PATH, "/.github/") || contains($PATH, "/.gitlab/") || in($BASENAME, ["Jenkinsfile"])'
 
+    # Dotfiles and dot-directories (".env", ".github", ".gitignore", ...):
+    # for these, $EXT is "" and $BASENAME keeps the leading dot, so
+    # kebab-case never matches them — allow the leading dot explicitly.
+    dotfile: 'startsWith($BASENAME, ".")'
+
   config:
     .json: "kebab-case || env-config"
     .yml: "kebab-case || env-config"
     .yaml: "kebab-case || env-config"
     .toml: "kebab-case"
-    .env: "kebab-case || env-config"
+    .env: "kebab-case || env-config || dotfile"
     .dockerfile: "docker-file"
-    .dir: "kebab-case"
+    .dir: "kebab-case || dotfile"
 
   ignore:
     - node_modules
@@ -460,6 +491,8 @@ lintp:
 lintp:
   custom-matchers:
     kebab-case: 'matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)'
+    # A stem that keeps ".test"/".spec" attached, e.g. "my-util.test"
+    kebab-dotted: 'matches($BASENAME, /^[a-z0-9]+(?:[-.][a-z0-9]+)*$/)'
 
     # Test file patterns
     is-test: 'contains($NAME, "test") || contains($NAME, "spec")'
@@ -480,6 +513,15 @@ lintp:
     covered-file: '! needs-test || has-test'
 
   config:
+    # Test files themselves carry a ".test"/".spec" suffix onto the stem
+    # ("my-util.test.ts"), so they get dedicated suffix keys with a matcher
+    # that allows the dot — the suffix key is matched before the generic
+    # ".ts"/".js" rule below (longest suffix wins).
+    .test.ts: "kebab-dotted"
+    .test.js: "kebab-dotted"
+    .spec.ts: "kebab-dotted"
+    .spec.js: "kebab-dotted"
+
     .js: 'kebab-case && covered-file'
     .ts: 'kebab-case && covered-file'
     .dir: 'kebab-case'

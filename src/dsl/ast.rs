@@ -36,7 +36,6 @@ pub enum Expression {
 
 #[derive(Debug, Clone)]
 pub enum StringTemplatePart {
-    #[allow(dead_code)]
     Literal(String),
     Expression(Box<Expression>),
 }

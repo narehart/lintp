@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 // Only import what we actually use
 use lintp::config::load_config;
 
-mod test_constants;
-use test_constants::*;
+mod common;
+use common::constants::*;
 
 struct TestConfig {
     _temp_dir: tempfile::TempDir, // Prefixed with underscore to indicate it's kept for its lifetime

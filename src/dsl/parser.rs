@@ -10,13 +10,8 @@ use crate::dsl::ast::{BinaryOperator, Expression, StringTemplatePart, UnaryOpera
 #[grammar = "dsl/grammar.pest"]
 struct DslParser;
 
-/// Parse a DSL expression string into an AST
-///
-/// # Arguments
-/// * `input` - The expression string to parse
-///
-/// # Returns
-/// * `Result<Expression>` - The parsed expression or an error
+/// Parses a rule, custom-matcher, or template-embedded expression string,
+/// enforcing that the whole input is consumed (trailing garbage is an error).
 pub fn parse_expression(input: &str) -> Result<Expression> {
     // Parse the input using Pest - use top_level to enforce EOI
     let pairs = DslParser::parse(Rule::top_level, input)
@@ -167,24 +162,37 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
                             }
                         }
 
-                        // Find the matching closing brace
+                        // Find the matching closing brace. `end_pos` is a byte
+                        // offset into `content`, so it must be advanced by
+                        // `char.len_utf8()` (not by 1) to stay on a char
+                        // boundary for multi-byte UTF-8 content such as
+                        // accented letters or CJK text inside the template.
                         let mut brace_count = 1;
                         let mut end_pos = abs_start + 2; // Start after "${"
+                        let mut terminated = false;
 
-                        while end_pos < content.len() && brace_count > 0 {
-                            match content.chars().nth(end_pos).unwrap() {
-                                '{' => {
-                                    brace_count += 1;
-                                }
+                        while end_pos < content.len() {
+                            let c = content[end_pos..].chars().next().ok_or_else(|| {
+                                anyhow::anyhow!(
+                                    "Invalid UTF-8 boundary while scanning string template"
+                                )
+                            })?;
+                            end_pos += c.len_utf8();
+
+                            match c {
+                                '{' => brace_count += 1,
                                 '}' => {
                                     brace_count -= 1;
+                                    if brace_count == 0 {
+                                        terminated = true;
+                                        break;
+                                    }
                                 }
                                 _ => {}
                             }
-                            end_pos += 1;
                         }
 
-                        if brace_count == 0 {
+                        if terminated {
                             // Found matching brace
                             let expr_content = &content[abs_start + 2..end_pos - 1];
 
@@ -205,11 +213,13 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
 
                             current_pos = end_pos;
                         } else {
-                            // Unmatched braces, treat as literal
-                            template_parts.push(StringTemplatePart::Literal(
-                                content[current_pos..].to_string(),
+                            // Ran out of input before the "${" was closed —
+                            // a real parse error, not something to paper over
+                            // by treating the rest of the string as a literal.
+                            return Err(anyhow::anyhow!(
+                                "Unterminated \"${{\" in string template: {}",
+                                content
                             ));
-                            break;
                         }
                     } else {
                         // No more templates, add remaining text
@@ -538,5 +548,45 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn test_string_template_with_multibyte_utf8() -> Result<()> {
+        // A valid template containing accented (2-byte) and CJK (3-byte)
+        // characters must scan correctly: byte offsets used while hunting
+        // for the closing brace must stay on char boundaries.
+        let expr = parse_expression("\"café-${$NAME}-日本語\"")?;
+
+        if let Expression::StringTemplate(parts) = &expr {
+            assert_eq!(parts.len(), 3);
+            assert!(matches!(
+                &parts[0],
+                StringTemplatePart::Literal(s) if s == "café-"
+            ));
+            assert!(matches!(&parts[1], StringTemplatePart::Expression(_)));
+            assert!(matches!(
+                &parts[2],
+                StringTemplatePart::Literal(s) if s == "-日本語"
+            ));
+        } else {
+            panic!("Expected StringTemplate, got {:?}", expr);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_unterminated_template_with_multibyte_utf8_is_err_not_panic() {
+        // Regression test for a panic: an unbalanced "${" combined with
+        // multi-byte UTF-8 content used to crash on `Option::unwrap()`
+        // inside the char-vs-byte-indexed scanner. It must now return a
+        // proper parse error instead.
+        let input = format!("\"${{{}\"", "é".repeat(20));
+        let result = parse_expression(&input);
+        assert!(
+            result.is_err(),
+            "expected unterminated ${{ with multi-byte content to error, got {:?}",
+            result
+        );
     }
 }

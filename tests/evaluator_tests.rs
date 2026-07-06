@@ -33,6 +33,7 @@ fn create_test_context<'a>(
         custom_matchers,
         item_context: None,
         fs_cache: None,
+        regex_cache: None,
     }
 }
 

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::dsl::ast::Expression;
 use crate::dsl::evaluator::{EvaluationContext, Value};
 use crate::dsl::parser::parse_expression;
+use crate::util::forward_slashes;
 
 /// Entry point for the collection functions (any/all/map/filter), whose
 /// lambda argument arrives unevaluated so `$item` can be bound per element.
@@ -75,6 +76,7 @@ fn eval_with_item(lambda: &Expression, item: &Value, context: &EvaluationContext
         custom_matchers: context.custom_matchers,
         item_context: Some(item.clone()),
         fs_cache: context.fs_cache,
+        regex_cache: context.regex_cache,
     };
 
     crate::dsl::evaluator::evaluate(lambda, &item_context)
@@ -221,7 +223,7 @@ fn exists_function(args: &[Value], context: &EvaluationContext) -> Result<Value>
     };
 
     // Count matching files
-    let glob_pattern = format!("{}/{}", parent.display(), pattern);
+    let glob_pattern = forward_slashes(&format!("{}/{}", parent.display(), pattern));
     let count = glob_paths(&glob_pattern, context)?.len();
 
     // Check if count is within range
@@ -246,7 +248,7 @@ fn siblings_function(args: &[Value], context: &EvaluationContext) -> Result<Valu
     let parent = context.path.parent().unwrap_or(Path::new("."));
 
     // Find matching siblings
-    let glob_pattern = format!("{}/{}", parent.display(), pattern);
+    let glob_pattern = forward_slashes(&format!("{}/{}", parent.display(), pattern));
     Ok(Value::List(glob_names(&glob_pattern, context)?))
 }
 
@@ -270,7 +272,7 @@ fn children_function(args: &[Value], context: &EvaluationContext) -> Result<Valu
     }
 
     // Find matching children
-    let glob_pattern = format!("{}/{}", context.path.display(), pattern);
+    let glob_pattern = forward_slashes(&format!("{}/{}", context.path.display(), pattern));
     Ok(Value::List(glob_names(&glob_pattern, context)?))
 }
 
@@ -298,7 +300,7 @@ fn find_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
     };
 
     // Find matching files
-    let glob_pattern = format!("{}/{}", dir.display(), pattern);
+    let glob_pattern = forward_slashes(&format!("{}/{}", dir.display(), pattern));
     Ok(Value::List(glob_names(&glob_pattern, context)?))
 }
 

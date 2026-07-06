@@ -5,8 +5,8 @@ use lintp::lint::{run_lint, LintResult};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-mod test_constants;
-use test_constants::*;
+mod common;
+use common::constants::*;
 
 /// Structure to hold both the temporary directory and the path
 struct TestDirectory {

@@ -9,8 +9,8 @@ use lintp::dsl::parser::parse_expression;
 use std::collections::HashMap;
 use std::path::Path;
 
-mod test_constants;
-use test_constants::*;
+mod common;
+use common::constants::*;
 
 /// Helper function to create test evaluation context
 fn create_test_context<'a>(
@@ -61,6 +61,7 @@ fn create_test_context<'a>(
         custom_matchers,
         item_context: None,
         fs_cache: None,
+        regex_cache: None,
     }
 }
 
@@ -74,18 +75,12 @@ fn eval_expr(expr_str: &str, file_path: &str) -> Result<Value> {
 
 /// Helper function to check if expression evaluates to true
 fn is_true(expr_str: &str, file_path: &str) -> bool {
-    match eval_expr(expr_str, file_path) {
-        Ok(Value::Boolean(true)) => true,
-        _ => false,
-    }
+    matches!(eval_expr(expr_str, file_path), Ok(Value::Boolean(true)))
 }
 
 /// Helper function to check if expression evaluates to false
 fn is_false(expr_str: &str, file_path: &str) -> bool {
-    match eval_expr(expr_str, file_path) {
-        Ok(Value::Boolean(false)) => true,
-        _ => false,
-    }
+    matches!(eval_expr(expr_str, file_path), Ok(Value::Boolean(false)))
 }
 
 // =============================================================================

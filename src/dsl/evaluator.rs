@@ -55,12 +55,18 @@ impl PartialEq for Value {
 /// directory for every file they are evaluated against.
 pub type FsCache = RefCell<HashMap<String, Vec<PathBuf>>>;
 
+/// Cache of compiled regexes shared across a lint run so a `/pattern/`
+/// literal used in a rule is compiled once, not once per file evaluated
+/// against that rule.
+pub type RegexCache = RefCell<HashMap<String, Regex>>;
+
 pub struct EvaluationContext<'a> {
     pub variables: HashMap<String, Value>,
     pub path: &'a Path,
     pub custom_matchers: &'a HashMap<String, Expression>,
     pub item_context: Option<Value>, // For map/filter operations
     pub fs_cache: Option<&'a FsCache>,
+    pub regex_cache: Option<&'a RegexCache>,
 }
 
 pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value> {
@@ -68,8 +74,12 @@ pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value>
         Expression::Variable(name) => {
             if let Some(value) = context.variables.get(name) {
                 Ok(value.clone())
-            } else if name == "item" && context.item_context.is_some() {
-                Ok(context.item_context.as_ref().unwrap().clone())
+            } else if name == "item" {
+                if let Some(item) = context.item_context.as_ref() {
+                    Ok(item.clone())
+                } else {
+                    Err(anyhow::anyhow!("Unknown variable: {}", name))
+                }
             } else {
                 Err(anyhow::anyhow!("Unknown variable: {}", name))
             }
@@ -80,8 +90,22 @@ pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value>
         Expression::BooleanLiteral(b) => Ok(Value::Boolean(*b)),
 
         Expression::RegexLiteral(pattern) => {
+            // Regexes are compiled once per distinct pattern and reused for
+            // every file evaluated against a rule, instead of recompiling
+            // the same pattern on every single evaluation.
+            if let Some(cache) = context.regex_cache {
+                if let Some(regex) = cache.borrow().get(pattern) {
+                    return Ok(Value::Regex(regex.clone()));
+                }
+            }
+
             let regex = Regex::new(pattern)
                 .with_context(|| format!("Invalid regex pattern: {}", pattern))?;
+
+            if let Some(cache) = context.regex_cache {
+                cache.borrow_mut().insert(pattern.clone(), regex.clone());
+            }
+
             Ok(Value::Regex(regex))
         }
 
@@ -257,5 +281,47 @@ pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value>
                 )),
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dsl::ast::Expression;
+    use std::path::Path;
+
+    /// Regression test: a `/pattern/` regex literal evaluated repeatedly
+    /// (as happens once per file linted with the same rule) must compile
+    /// the pattern once and reuse it from `regex_cache`, not recompile it
+    /// on every call.
+    #[test]
+    fn test_regex_literal_uses_and_populates_cache() {
+        let path = Path::new("/tmp/test.js");
+        let custom_matchers = HashMap::new();
+        let regex_cache: RegexCache = RegexCache::default();
+
+        let context = EvaluationContext {
+            variables: HashMap::new(),
+            path,
+            custom_matchers: &custom_matchers,
+            item_context: None,
+            fs_cache: None,
+            regex_cache: Some(&regex_cache),
+        };
+
+        let expr = Expression::RegexLiteral("^test-[0-9]+$".to_string());
+
+        // Cache starts empty
+        assert_eq!(regex_cache.borrow().len(), 0);
+
+        let first = evaluate(&expr, &context).unwrap();
+        assert!(matches!(first, Value::Regex(_)));
+        assert_eq!(regex_cache.borrow().len(), 1);
+
+        // Evaluating the same pattern again must reuse the cached entry
+        // rather than inserting a second one.
+        let second = evaluate(&expr, &context).unwrap();
+        assert!(matches!(second, Value::Regex(_)));
+        assert_eq!(regex_cache.borrow().len(), 1);
     }
 }

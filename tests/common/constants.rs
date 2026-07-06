@@ -1,7 +1,13 @@
-/// Standardized regex patterns && constants for lintp tests
-///
-/// This module provides consistent regex patterns for all naming conventions
-/// used throughout the test suite to ensure reliability && maintainability.
+//! Standardized regex patterns && constants for lintp tests
+//!
+//! This module provides consistent regex patterns for all naming conventions
+//! used throughout the test suite to ensure reliability && maintainability.
+//!
+//! Included via `mod common;` from several integration test binaries, each
+//! of which only uses a subset of what's defined here — so "never used"
+//! warnings are expected per-binary and suppressed at the module level
+//! rather than papered over per item.
+#![allow(dead_code)]
 
 // =============================================================================
 // NAMING CONVENTION PATTERNS

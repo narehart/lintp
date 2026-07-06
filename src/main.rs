@@ -2,9 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use std::path::PathBuf;
 
-mod config;
-mod dsl;
-mod lint;
+use lintp::{config, lint};
 
 #[derive(Parser)]
 #[command(
@@ -30,7 +28,6 @@ struct Cli {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Find config file
     let config_path = match cli.config {
         Some(path) => path,
         None => {
@@ -45,13 +42,8 @@ fn main() -> Result<()> {
         }
     };
 
-    // Load and parse config
     let config = config::load_config(&config_path)?;
-
-    // Run the linter
     let results = lint::run_lint(&cli.dir, &config, cli.verbose)?;
-
-    // Report results
     let success = report_results(&results);
 
     if !success {
