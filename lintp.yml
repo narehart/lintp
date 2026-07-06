@@ -12,8 +12,9 @@ lintp:
     in-benches: 'contains($PATH, "/benches/")'
     in-docs: 'contains($PATH, "/docs/")'
 
-    # naming shapes
-    rust-test-name: 'endsWith($BASENAME, "_tests") || startsWith($BASENAME, "test_")'
+    # naming shapes — tests/common/ is Cargo's shared-helper module dir,
+    # so its files follow module naming instead of the _tests suffix
+    rust-test-name: 'endsWith($BASENAME, "_tests") || startsWith($BASENAME, "test_") || contains($PATH, "/tests/common/")'
     bench-name: 'endsWith($BASENAME, "_bench")'
 
     # explicit allowlists — a new root file or directory is a deliberate

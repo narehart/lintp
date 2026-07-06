@@ -1,3 +1,11 @@
+// Shared test support module, included via `mod common;` from several
+// integration test binaries. Each binary only exercises a subset of these
+// helpers/constants, so per-binary "never used" warnings are expected and
+// not a sign of dead code in the shared module itself.
+#![allow(dead_code)]
+
+pub mod constants;
+
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -97,6 +105,7 @@ pub fn create_test_evaluation_context<'a>(
         custom_matchers,
         item_context: None,
         fs_cache: None,
+        regex_cache: None,
     }
 }
 

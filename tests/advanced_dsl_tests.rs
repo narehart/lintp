@@ -11,9 +11,9 @@ use lintp::dsl::evaluator::{evaluate, EvaluationContext, Value};
 use lintp::dsl::functions::call_function;
 use lintp::dsl::parser::parse_expression;
 
-mod test_helpers;
+mod common;
 
-use test_helpers::*;
+use common::*;
 
 // =============================================================================
 // TEST UTILITIES FOR ADVANCED DSL TESTING

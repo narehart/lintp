@@ -49,7 +49,6 @@ path = "src/lib.rs"
 
 [dependencies]
 anyhow = "1.0"
-thiserror = "1.0"
 clap = { version = "4.0", features = ["derive"] }
 pest = "2.5"
 pest_derive = "2.5"
@@ -75,31 +74,3 @@ lto = "thin"
 codegen-units = 1
 # This CLI does not recover from panics.
 panic = "abort"
-
-[[test]]
-name = "parser_tests"
-path = "tests/parser_tests.rs"
-
-[[test]]
-name = "evaluator_tests"
-path = "tests/evaluator_tests.rs"
-
-[[test]]
-name = "functions_tests"
-path = "tests/functions_tests.rs"
-
-[[test]]
-name = "config_tests"
-path = "tests/config_tests.rs"
-
-[[test]]
-name = "lint_tests"
-path = "tests/lint_tests.rs"
-
-[[test]]
-name = "integration_tests"
-path = "tests/integration_tests.rs"
-
-[[test]]
-name = "advanced_dsl_tests"
-path = "tests/advanced_dsl_tests.rs"

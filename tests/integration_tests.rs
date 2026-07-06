@@ -2,8 +2,8 @@ use anyhow::{Context as AnyhowContext, Result};
 use std::path::PathBuf;
 use std::process::Command;
 
-mod test_constants;
-use test_constants::*;
+mod common;
+use common::constants::*;
 
 /// Structure to hold both the temporary directory and the path
 struct TestProject {
