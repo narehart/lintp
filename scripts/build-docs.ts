@@ -16,6 +16,10 @@
  *   ## Installation <!-- note: npm, from source -->   ToC annotation
  *   ## Contributing <!-- site:skip -->        omit section from the site
  *   <!-- site:sub One-line page intro. -->    intro under the crumb
+ *
+ * llms.txt (https://llmstxt.org) is generated into the same output
+ * directory from the MD_PAGES registry and README's opening paragraph —
+ * see generateLlmsTxt() — so it's never hand-maintained separately.
  */
 
 import fs from "fs";
@@ -64,6 +68,8 @@ const MD_PAGES: MdPage[] = [
 
 const HOMEPAGE = "docs/index.html";
 const STATIC_DIRS = ["docs/assets"];
+const REPO_URL = "https://github.com/narehart/lintp";
+const SITE_URL = "https://narehart.github.io/lintp";
 
 /** GitHub-compatible heading slug, so intra-page anchors keep working */
 export function slugify(text: string): string {
@@ -263,6 +269,50 @@ ${rows}
       </div>`;
 }
 
+/** First real line of body text in a markdown doc: skips blank lines,
+ * headings, and HTML comments (site:sub, etc.) to find the plain-prose
+ * description that opens the file. */
+export function firstParagraph(md: string): string {
+  for (const line of md.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("<!--")) {
+      continue;
+    }
+    return trimmed;
+  }
+  return "";
+}
+
+/**
+ * Generates the llms.txt (https://llmstxt.org) served alongside the docs
+ * site, so LLM tooling gets a curated index instead of having to crawl
+ * rendered HTML. Entirely derived from the MD_PAGES registry and README's
+ * own opening description — there's no hand-authored prose here to drift
+ * out of sync with the real docs.
+ */
+export function generateLlmsTxt(): string {
+  const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
+  const summary = firstParagraph(readme);
+
+  const docs = MD_PAGES.map(
+    (p) => `- [${p.name}](${SITE_URL}/${p.out}): ${p.note.replace(/^#\s*/, "")}`
+  ).join("\n");
+
+  return `# lintp
+
+> ${summary}
+
+## Docs
+
+${docs}
+
+## Optional
+
+- [Docs site](${SITE_URL}/): the same pages above, rendered
+- [Repository](${REPO_URL}): source, issues, and contribution guidelines
+`;
+}
+
 /** continue/ tree linking to the other doc pages */
 function continueTree(currentName: string): string {
   const others = MD_PAGES.filter((p) => p.name !== currentName);
@@ -351,6 +401,9 @@ export function buildDocs(outDir: string): string[] {
     homepage.replace("<!-- nav-tree -->", navTree())
   );
   written.push("index.html");
+
+  fs.writeFileSync(path.join(outDir, "llms.txt"), generateLlmsTxt());
+  written.push("llms.txt");
 
   for (const dir of STATIC_DIRS) {
     fs.cpSync(path.join(ROOT, dir), path.join(outDir, path.basename(dir)), {

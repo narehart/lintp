@@ -5,6 +5,8 @@ import path from "path";
 import {
   buildDocs,
   colorizeCodeLine,
+  firstParagraph,
+  generateLlmsTxt,
   preprocess,
   rewriteLinks,
   slugify,
@@ -86,6 +88,49 @@ describe("build-docs", () => {
     });
   });
 
+  describe("firstParagraph", () => {
+    it("skips the heading, blank lines, and comments to find the intro", () => {
+      const md = [
+        "# Title",
+        "",
+        "<!-- site:sub A page intro. -->",
+        "",
+        "The real description.",
+        "",
+        "## Next section",
+      ].join("\n");
+      expect(firstParagraph(md)).toBe("The real description.");
+    });
+
+    it("returns an empty string when there is no prose", () => {
+      expect(firstParagraph("# Title\n\n<!-- comment -->\n")).toBe("");
+    });
+  });
+
+  describe("generateLlmsTxt", () => {
+    it("derives an llms.txt from the page registry and README's own intro, per https://llmstxt.org", () => {
+      const txt = generateLlmsTxt();
+
+      expect(txt).toMatch(/^# lintp\n/);
+      expect(txt).toContain(
+        "> A powerful file system linter that validates directory structures"
+      );
+      expect(txt).toContain("## Docs");
+      for (const [page, description] of [
+        ["getting-started.html", "install, CLI, config structure"],
+        ["dsl-reference.html", "every operator, variable, function"],
+        ["common-patterns.html", "reusable naming & structure rules"],
+        ["examples.html", "React, Node API, monorepo configs"],
+      ]) {
+        expect(txt).toContain(
+          `(https://narehart.github.io/lintp/${page}): ${description}`
+        );
+      }
+      expect(txt).toContain("## Optional");
+      expect(txt).toContain("https://github.com/narehart/lintp");
+    });
+  });
+
   describe("toComponents", () => {
     it("emits design-system classes for markdown constructs", () => {
       const md = [
@@ -136,6 +181,7 @@ describe("build-docs", () => {
         "common-patterns.html",
         "examples.html",
         "index.html",
+        "llms.txt",
       ]) {
         expect(existsSync(path.join(outDir, file)), file).toBe(true);
       }
