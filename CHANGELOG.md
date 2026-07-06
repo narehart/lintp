@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0 (2026-07-06)
+
+## What's Changed
+* feat!: pre-launch review — structured errors, symlink handling, release hardening by @narehart in https://github.com/narehart/lintp/pull/68
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.6.2...v0.7.0
+
 ## 0.6.2 (2026-07-06)
 
 ## What's Changed
