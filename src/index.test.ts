@@ -43,16 +43,73 @@ describe("index.ts", () => {
   const mockHomedir = vi.mocked(homedir);
   const mockExistsSync = vi.mocked(existsSync);
 
+  function mockProcessReport(header: Record<string, unknown>) {
+    return vi.spyOn(process, "report", "get").mockReturnValue({
+      getReport: () => ({ header }),
+    } as unknown as NodeJS.ProcessReport);
+  }
+
   beforeEach(() => {
     vi.resetAllMocks();
     vi.clearAllMocks();
     vi.resetModules();
     // Default: real filesystem behavior (package.json discovery etc.)
     mockExistsSync.mockImplementation(actualFs.existsSync);
+    // Default: a glibc-reporting host, so tests that mock os.platform() as
+    // "linux" get consistent isMusl()=false behavior regardless of what the
+    // test runner's actual host libc is. Individual musl tests override this.
+    mockProcessReport({ glibcVersionRuntime: "2.31" });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  describe("isMusl", () => {
+    it("returns false on non-linux platforms regardless of process.report", async () => {
+      mockPlatform.mockReturnValue("darwin");
+
+      const { isMusl } = await import("./index");
+      expect(isMusl()).toBe(false);
+    });
+
+    it("returns false on linux when glibcVersionRuntime is present", async () => {
+      mockPlatform.mockReturnValue("linux");
+      mockProcessReport({ glibcVersionRuntime: "2.31" });
+
+      const { isMusl } = await import("./index");
+      expect(isMusl()).toBe(false);
+    });
+
+    it("returns true on linux when glibcVersionRuntime is absent (musl)", async () => {
+      mockPlatform.mockReturnValue("linux");
+      mockProcessReport({});
+
+      const { isMusl } = await import("./index");
+      expect(isMusl()).toBe(true);
+    });
+
+    it("returns false when process.report is unavailable", async () => {
+      mockPlatform.mockReturnValue("linux");
+      vi.spyOn(process, "report", "get").mockReturnValue(
+        undefined as unknown as NodeJS.ProcessReport
+      );
+
+      const { isMusl } = await import("./index");
+      expect(isMusl()).toBe(false);
+    });
+
+    it("returns false when reading the report throws", async () => {
+      mockPlatform.mockReturnValue("linux");
+      vi.spyOn(process, "report", "get").mockReturnValue({
+        getReport: () => {
+          throw new Error("boom");
+        },
+      } as unknown as NodeJS.ProcessReport);
+
+      const { isMusl } = await import("./index");
+      expect(isMusl()).toBe(false);
+    });
   });
 
   describe("getPlatformTarget", () => {
@@ -66,6 +123,18 @@ describe("index.ts", () => {
     ])("maps %s/%s to %s", async (plat, architecture, expected) => {
       mockPlatform.mockReturnValue(plat as NodeJS.Platform);
       mockArch.mockReturnValue(architecture as NodeJS.Architecture);
+
+      const { getPlatformTarget } = await import("./index");
+      expect(getPlatformTarget()).toBe(expected);
+    });
+
+    it.each([
+      ["x64", "x86_64-unknown-linux-musl"],
+      ["arm64", "aarch64-unknown-linux-musl"],
+    ])("maps musl linux/%s to %s", async (architecture, expected) => {
+      mockPlatform.mockReturnValue("linux");
+      mockArch.mockReturnValue(architecture as NodeJS.Architecture);
+      mockProcessReport({});
 
       const { getPlatformTarget } = await import("./index");
       expect(getPlatformTarget()).toBe(expected);
@@ -128,6 +197,21 @@ describe("index.ts", () => {
       const { getAssetName } = await import("./index");
       expect(getAssetName()).toBe("lintp-x86_64-pc-windows-msvc.exe");
     });
+
+    it.each([
+      ["x64", "lintp-x86_64-unknown-linux-musl"],
+      ["arm64", "lintp-aarch64-unknown-linux-musl"],
+    ])(
+      "matches the musl release asset naming for linux/%s",
+      async (architecture, expected) => {
+        mockPlatform.mockReturnValue("linux");
+        mockArch.mockReturnValue(architecture as NodeJS.Architecture);
+        mockProcessReport({});
+
+        const { getAssetName } = await import("./index");
+        expect(getAssetName()).toBe(expected);
+      }
+    );
   });
 
   describe("getPlatformPackageName", () => {
@@ -153,6 +237,18 @@ describe("index.ts", () => {
 
       const { getPlatformPackageName } = await import("./index");
       expect(getPlatformPackageName()).toBeNull();
+    });
+
+    it.each([
+      ["x64", "lintp-linux-x64-musl"],
+      ["arm64", "lintp-linux-arm64-musl"],
+    ])("maps musl linux/%s to %s", async (architecture, expected) => {
+      mockPlatform.mockReturnValue("linux");
+      mockArch.mockReturnValue(architecture as NodeJS.Architecture);
+      mockProcessReport({});
+
+      const { getPlatformPackageName } = await import("./index");
+      expect(getPlatformPackageName()).toBe(expected);
     });
   });
 
@@ -279,6 +375,75 @@ describe("index.ts", () => {
         handleBinaryError(error as NodeJS.ErrnoException, "/path/to/binary")
       ).toThrow("Some other error");
     });
+
+    it("reports a musl/glibc mismatch when the binary exists but ENOENT is thrown on Linux", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const processExit = vi.spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("process.exit called");
+      });
+      const processPlatform = vi
+        .spyOn(process, "platform", "get")
+        .mockReturnValue("linux");
+      mockExistsSync.mockReturnValue(true);
+
+      const { handleBinaryError } = await import("./index");
+      const error = new Error("File not found") as NodeJS.ErrnoException;
+      error.code = "ENOENT";
+
+      expect(() => handleBinaryError(error, "/path/to/binary")).toThrow(
+        "process.exit called"
+      );
+
+      expect(consoleError).toHaveBeenCalledWith(
+        "Error: Binary exists at /path/to/binary but could not be executed."
+      );
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.stringContaining("musl-based distro")
+      );
+      expect(consoleError).not.toHaveBeenCalledWith(
+        expect.stringContaining("Binary not found at:")
+      );
+      expect(processExit).toHaveBeenCalledWith(1);
+
+      consoleError.mockRestore();
+      processExit.mockRestore();
+      processPlatform.mockRestore();
+    });
+
+    it("keeps the generic not-found message when the binary is truly missing on Linux", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const processExit = vi.spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("process.exit called");
+      });
+      const processPlatform = vi
+        .spyOn(process, "platform", "get")
+        .mockReturnValue("linux");
+      mockExistsSync.mockReturnValue(false);
+
+      const { handleBinaryError } = await import("./index");
+      const error = new Error("File not found") as NodeJS.ErrnoException;
+      error.code = "ENOENT";
+
+      expect(() => handleBinaryError(error, "/path/to/binary")).toThrow(
+        "process.exit called"
+      );
+
+      expect(consoleError).toHaveBeenCalledWith(
+        "Error: Binary not found at: /path/to/binary"
+      );
+      expect(consoleError).not.toHaveBeenCalledWith(
+        expect.stringContaining("musl-based distro")
+      );
+      expect(processExit).toHaveBeenCalledWith(1);
+
+      consoleError.mockRestore();
+      processExit.mockRestore();
+      processPlatform.mockRestore();
+    });
   });
 
   describe("handleBinaryExit", () => {
@@ -353,6 +518,40 @@ describe("index.ts", () => {
       );
       expect(mockChild.on).toHaveBeenCalledWith("error", expect.any(Function));
       expect(mockChild.on).toHaveBeenCalledWith("exit", expect.any(Function));
+    });
+
+    it("prints only the error message (no stack trace) for an unsupported platform", async () => {
+      mockPlatform.mockReturnValue("freebsd" as NodeJS.Platform);
+      mockArch.mockReturnValue("x64");
+      mockHomedir.mockReturnValue("/home/test");
+      process.argv = ["node", "index.js"];
+
+      // No cached binary and no installed platform package, so ensureBinary
+      // falls through to the download path, which throws while building the
+      // asset name (getPlatformTarget) for this unsupported platform.
+      mockExistsSync.mockImplementation((p) =>
+        String(p).endsWith("package.json") ? actualFs.existsSync(p) : false
+      );
+
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const processExit = vi.spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("process.exit called");
+      });
+
+      const { main } = await import("./index");
+
+      await expect(main()).rejects.toThrow("process.exit called");
+
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to start lintp:",
+        "Unsupported platform: freebsd x64"
+      );
+      expect(processExit).toHaveBeenCalledWith(1);
+
+      consoleError.mockRestore();
+      processExit.mockRestore();
     });
 
     it("wires error and exit handling to the child process", async () => {
@@ -553,6 +752,7 @@ describe("index.ts", () => {
       const module = await import("./index");
 
       expect(module.main).toBeDefined();
+      expect(module.isMusl).toBeDefined();
       expect(module.getPlatformTarget).toBeDefined();
       expect(module.getBinaryName).toBeDefined();
       expect(module.getAssetName).toBeDefined();

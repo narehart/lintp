@@ -21,6 +21,10 @@ interface PlatformInfo {
   os: string;
   cpu: string;
   binaryName: string;
+  // npm's arborist consults this field (alongside os/cpu) when deciding
+  // which optionalDependency to install; without it, glibc and musl Linux
+  // packages are indistinguishable to npm and either one could "win".
+  libc?: string[];
 }
 
 const TARGETS: Record<string, PlatformInfo> = {
@@ -41,12 +45,28 @@ const TARGETS: Record<string, PlatformInfo> = {
     os: "linux",
     cpu: "x64",
     binaryName: "lintp",
+    libc: ["glibc"],
   },
   "aarch64-unknown-linux-gnu": {
     packageName: "lintp-linux-arm64",
     os: "linux",
     cpu: "arm64",
     binaryName: "lintp",
+    libc: ["glibc"],
+  },
+  "x86_64-unknown-linux-musl": {
+    packageName: "lintp-linux-x64-musl",
+    os: "linux",
+    cpu: "x64",
+    binaryName: "lintp",
+    libc: ["musl"],
+  },
+  "aarch64-unknown-linux-musl": {
+    packageName: "lintp-linux-arm64-musl",
+    os: "linux",
+    cpu: "arm64",
+    binaryName: "lintp",
+    libc: ["musl"],
   },
   "x86_64-pc-windows-msvc": {
     packageName: "lintp-win32-x64",
@@ -99,6 +119,7 @@ export function preparePlatformPackage(target: string): string {
     repository: mainPackage.repository,
     os: [info.os],
     cpu: [info.cpu],
+    ...(info.libc ? { libc: info.libc } : {}),
     files: ["bin"],
   };
 
