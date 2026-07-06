@@ -466,17 +466,19 @@ all([], $item == "x") == true
 
 Check if the number of files matching `pattern` falls within `[min, max]`.
 With one argument, `min` defaults to `1` and `max` is unbounded, so
-`exists(pattern)` just checks that at least one match exists. Pass `min`
-and/or `max` to require an exact count or a range:
+`exists(pattern)` just checks that at least one match exists. Patterns are
+resolved relative to the entry being linted — the file's own directory, or
+the directory itself when the rule targets a directory — not the project
+root. Pass `min` and/or `max` to require an exact count or a range:
 
 ```yaml
-exists("package.json")                      # Package file exists
-exists("README.*")                          # Any README file
-exists("src/index.*")                       # Index file in src
-exists("**/*.test.*")                       # Any test files recursively
+exists("package.json")                      # A package.json in this entry's directory
+exists("README.*")                          # Any README next to this entry
+exists("src/index.*")                       # An index file in a src/ subdirectory
+exists("**/*.test.*")                       # Any test files recursively below here
 
 # Exactly 3 matching files in the current directory
-exists("*.existsmm", 3, 3)
+exists("*.sql", 3, 3)
 
 # Between 5 and 10 matches
 exists("*.log", 5, 10)

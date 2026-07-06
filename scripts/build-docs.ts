@@ -177,6 +177,9 @@ export function preprocess(md: string): Preprocessed {
   // images stay in the README (the site homepage carries the demo)
   out = out.replace(/^!\[[^\]]*\]\([^)]*\)\s*$/gm, "");
 
+  // badge lines (linked images) are README-only chrome
+  out = out.replace(/^(?:\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)\s*)+$/gm, "");
+
   return { md: out, notes, sub };
 }
 
@@ -270,12 +273,18 @@ ${rows}
 }
 
 /** First real line of body text in a markdown doc: skips blank lines,
- * headings, and HTML comments (site:sub, etc.) to find the plain-prose
- * description that opens the file. */
+ * headings, HTML comments (site:sub, etc.), and image/badge lines to find
+ * the plain-prose description that opens the file. */
 export function firstParagraph(md: string): string {
   for (const line of md.split("\n")) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("<!--")) {
+    if (
+      !trimmed ||
+      trimmed.startsWith("#") ||
+      trimmed.startsWith("<!--") ||
+      trimmed.startsWith("![") ||
+      trimmed.startsWith("[![")
+    ) {
       continue;
     }
     return trimmed;

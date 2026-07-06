@@ -91,7 +91,7 @@ This project uses [Release Please](https://github.com/googleapis/release-please)
 
 3. **Release Creation**: When the release PR is merged:
    - A GitHub release is created with the new tag, with binaries and
-     SHA256 checksums for all 5 platforms attached
+     SHA256 checksums for all 7 platforms attached
    - Platform binary packages (`lintp-darwin-arm64` etc.) and the main
      wrapper package (`lintp-cli` — npm reserves the bare name; the
      installed command is still `lintp`) are published to npm

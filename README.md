@@ -1,10 +1,27 @@
 # lintp - File System Linter with DSL
 
+[![CI](https://github.com/narehart/lintp/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/narehart/lintp/actions/workflows/pr-checks.yml)
+[![crates.io](https://img.shields.io/crates/v/lintp)](https://crates.io/crates/lintp)
+[![npm](https://img.shields.io/npm/v/lintp-cli)](https://www.npmjs.com/package/lintp-cli)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A powerful file system linter that validates directory structures and file naming conventions using a custom Domain-Specific Language (DSL) defined in YAML configuration files.
 
 <!-- site:sub Install lintp, write your first lintp.yml, and run it against a project — plus configuration, CLI flags, and troubleshooting. -->
 
 ![lintp demo: failing files are flagged with the exact rule condition that failed, then pass after renaming](https://raw.githubusercontent.com/narehart/lintp/main/docs/assets/demo.gif)
+
+## Why lintp? <!-- note: relational rules, vs name-only linters -->
+
+File-naming linters already exist — [ls-lint](https://ls-lint.org/) is a good one, and if your conventions are purely "this extension uses this case style", it may be all you need. lintp is for the conventions a name-only check can't express, where a rule depends on what exists _around_ a file:
+
+```yaml title="lintp.yml — a relational rule"
+# every component is PascalCase and has a test file sitting next to it
+.tsx:
+  rule: 'pascal-case && in("${$BASENAME}.test.tsx", siblings("*.test.tsx"))'
+```
+
+Rules are expressions in a small DSL with functions like `siblings()`, `children()`, `find()`, and `exists()`, so a rule can look at a file's context — not just its name.
 
 ## Installation <!-- note: npm, from source -->
 
