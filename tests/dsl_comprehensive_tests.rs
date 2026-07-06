@@ -70,7 +70,7 @@ fn eval_expr(expr_str: &str, file_path: &str) -> Result<Value> {
     let expr = parse_expression(expr_str)?;
     let custom_matchers = HashMap::new();
     let context = create_test_context(file_path, &custom_matchers);
-    evaluate(&expr, &context)
+    Ok(evaluate(&expr, &context)?)
 }
 
 /// Helper function to check if expression evaluates to true

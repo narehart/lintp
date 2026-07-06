@@ -4,12 +4,32 @@ use std::path::{Path, PathBuf};
 
 use crate::dsl::ast::Expression;
 use crate::dsl::evaluator::{EvaluationContext, Value};
-use crate::dsl::parser::parse_expression;
+use crate::dsl::parser::parse_expression_impl;
 use crate::util::forward_slashes;
 
 /// Entry point for the collection functions (any/all/map/filter), whose
 /// lambda argument arrives unevaluated so `$item` can be bound per element.
+///
+/// # Errors
+///
+/// Returns [`crate::Error::Dsl`] if `collection` is not a list, `name` is
+/// not a recognized lambda function, or the lambda fails to parse or
+/// evaluate for one of the collection's items.
 pub fn call_lambda_function(
+    name: &str,
+    collection: &Value,
+    lambda: &Expression,
+    context: &EvaluationContext,
+) -> std::result::Result<Value, crate::Error> {
+    call_lambda_function_impl(name, collection, lambda, context)
+        .map_err(|e| crate::Error::Dsl(format!("{:#}", e)))
+}
+
+/// Implementation behind [`call_lambda_function`]; kept separate (and
+/// anyhow-based) because it's mutually recursive with `dsl::evaluator`,
+/// where the surrounding `anyhow::Context` chaining is more convenient than
+/// converting back and forth through [`crate::Error`] on every call.
+pub(crate) fn call_lambda_function_impl(
     name: &str,
     collection: &Value,
     lambda: &Expression,
@@ -26,7 +46,7 @@ pub fn call_lambda_function(
     // is parsed as an expression rather than treated as a literal
     let parsed;
     let lambda = if let Expression::StringLiteral(s) = lambda {
-        parsed = parse_expression(s).context(format!("Failed to parse expression: {}", s))?;
+        parsed = parse_expression_impl(s).context(format!("Failed to parse expression: {}", s))?;
         &parsed
     } else {
         lambda
@@ -79,7 +99,7 @@ fn eval_with_item(lambda: &Expression, item: &Value, context: &EvaluationContext
         regex_cache: context.regex_cache,
     };
 
-    crate::dsl::evaluator::evaluate(lambda, &item_context)
+    crate::dsl::evaluator::evaluate_impl(lambda, &item_context)
 }
 
 /// Run a glob, using the run-wide cache when one is available so repeated
@@ -114,7 +134,30 @@ fn glob_names(pattern: &str, context: &EvaluationContext) -> Result<Vec<Value>> 
         .collect())
 }
 
-pub fn call_function(name: &str, args: &[Value], context: &EvaluationContext) -> Result<Value> {
+/// Dispatches a built-in function call (`matches`, `exists`, `count`, ...)
+/// by name.
+///
+/// # Errors
+///
+/// Returns [`crate::Error::Dsl`] if `name` is not a recognized function, or
+/// if `args` has the wrong count or type for it.
+pub fn call_function(
+    name: &str,
+    args: &[Value],
+    context: &EvaluationContext,
+) -> std::result::Result<Value, crate::Error> {
+    call_function_impl(name, args, context).map_err(|e| crate::Error::Dsl(format!("{:#}", e)))
+}
+
+/// Implementation behind [`call_function`]; kept separate (and
+/// anyhow-based) because it's mutually recursive with `dsl::evaluator`,
+/// where the surrounding `anyhow::Context` chaining is more convenient than
+/// converting back and forth through [`crate::Error`] on every call.
+pub(crate) fn call_function_impl(
+    name: &str,
+    args: &[Value],
+    context: &EvaluationContext,
+) -> Result<Value> {
     match name {
         "matches" => matches_function(args, context),
         "in" => in_function(args, context),
@@ -191,7 +234,10 @@ fn exists_function(args: &[Value], context: &EvaluationContext) -> Result<Value>
 
     let min = if args.len() > 1 {
         match &args[1] {
-            Value::Integer(i) => *i as usize,
+            Value::Integer(i) if *i >= 0 => *i as usize,
+            Value::Integer(_) => {
+                return Err(anyhow::anyhow!("exists() min/max must be non-negative"));
+            }
             _ => {
                 return Err(anyhow::anyhow!(
                     "exists() second argument must be an integer"
@@ -204,7 +250,10 @@ fn exists_function(args: &[Value], context: &EvaluationContext) -> Result<Value>
 
     let max = if args.len() > 2 {
         match &args[2] {
-            Value::Integer(i) => *i as usize,
+            Value::Integer(i) if *i >= 0 => *i as usize,
+            Value::Integer(_) => {
+                return Err(anyhow::anyhow!("exists() min/max must be non-negative"));
+            }
             _ => {
                 return Err(anyhow::anyhow!(
                     "exists() third argument must be an integer"
@@ -334,7 +383,7 @@ fn string_lambda_function(
 
     let expr = match &args[1] {
         Value::String(s) => {
-            parse_expression(s).context(format!("Failed to parse expression: {}", s))?
+            parse_expression_impl(s).context(format!("Failed to parse expression: {}", s))?
         }
         _ => {
             return Err(anyhow::anyhow!(
@@ -344,7 +393,7 @@ fn string_lambda_function(
         }
     };
 
-    call_lambda_function(name, &args[0], &expr, context)
+    call_lambda_function_impl(name, &args[0], &expr, context)
 }
 
 fn contains_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {

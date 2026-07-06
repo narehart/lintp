@@ -83,15 +83,23 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             name: linux-arm64
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            name: linux-x64-musl
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            name: linux-arm64-musl
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
 
       # asdf has no Windows build, so this job uses platform-native
       # toolchain actions instead
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master as of 2026-07-06
         with:
           toolchain: "1.85.0"
           targets: ${{ matrix.target }}
@@ -107,8 +115,29 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
+      # musl-tools provides musl-gcc, which is all that's needed to link this
+      # target natively on an x64 ubuntu runner (no cross toolchain required).
+      - name: Install musl build tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      # aarch64 musl has no apt cross-gcc package the way aarch64 gnu does
+      # (gcc-aarch64-linux-gnu), so this target cross-compiles via `cross`
+      # (Docker-based) instead of a bare cargo build against a host linker.
+      - name: Install cross for aarch64 musl cross-compilation
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: cargo install cross --locked
+
       - name: Build binary
-        run: cargo build --release --target ${{ matrix.target }}
+        shell: bash
+        run: |
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
         env:
           # cargo must link aarch64 objects with the cross-gcc, not host ld
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc

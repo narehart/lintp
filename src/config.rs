@@ -7,6 +7,7 @@ use std::path::Path;
 use crate::dsl::ast::Expression;
 use crate::dsl::parser::parse_expression;
 
+/// Top-level shape of a `lintp.yml` config file: a single `lintp:` key.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -14,15 +15,20 @@ pub struct Config {
     pub lintp: LintPConfig,
 }
 
+/// Contents of the `lintp:` key in the config file.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LintPConfig {
+    /// Named DSL expressions (`custom-matchers:` in YAML) that rules can
+    /// reference by name instead of repeating the expression inline.
     #[serde(rename = "custom-matchers", default)]
     pub custom_matchers: HashMap<String, String>,
 
+    /// The `config:` block: extension rules, optionally scoped by path glob.
     #[serde(deserialize_with = "deserialize_rule_config")]
     pub config: RuleConfig,
 
+    /// Glob patterns for paths excluded from linting entirely.
     #[serde(default)]
     pub ignore: Vec<String>,
 }
@@ -35,9 +41,15 @@ pub struct RuleEntry {
     pub message: Option<String>,
 }
 
+/// Parsed form of the `config:` block: rule keys are extension patterns
+/// (`.js`, `.dir`, `.*`), optionally nested under a path glob to scope them
+/// to part of the tree.
 #[derive(Debug)]
 pub struct RuleConfig {
+    /// Extension rules that apply everywhere (not nested under a path glob).
     pub global_rules: HashMap<String, RuleEntry>,
+    /// Extension rules nested under a path glob, keyed by that glob. When a
+    /// path matches more than one glob, the most specific pattern wins.
     pub path_rules: HashMap<String, HashMap<String, RuleEntry>>,
 }
 
@@ -298,43 +310,79 @@ where
     Ok(RuleEntry { rule, message })
 }
 
-pub fn load_config(path: &Path) -> Result<ParsedConfig> {
-    let config_str = std::fs::read_to_string(path)
-        .with_context(|| format!("Failed to read config file: {}", path.display()))?;
+/// Load and validate a `lintp.yml` config file at `path`.
+///
+/// Rules, custom matchers, and ignore patterns are all parsed and validated
+/// up front, so configuration mistakes (bad YAML, invalid glob or rule
+/// syntax, unknown matcher references, etc.) surface here instead of mid-lint.
+///
+/// # Errors
+///
+/// Returns [`crate::Error::ConfigNotFound`] if `path` does not exist,
+/// [`crate::Error::Io`] if it exists but can't be read,
+/// [`crate::Error::ConfigParse`] if it is not valid YAML or doesn't match
+/// the expected `lintp.yml` shape, [`crate::Error::Glob`] if an `ignore:`
+/// pattern fails to compile, or [`crate::Error::Dsl`] if a matcher name is
+/// shadowed by a boolean literal, a rule or custom-matcher expression fails
+/// to parse, or a rule references an undefined custom matcher.
+pub fn load_config(path: &Path) -> std::result::Result<ParsedConfig, crate::Error> {
+    let config_str = std::fs::read_to_string(path).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            crate::Error::ConfigNotFound {
+                path: path.to_path_buf(),
+            }
+        } else {
+            crate::Error::Io {
+                path: path.to_path_buf(),
+                source: e,
+            }
+        }
+    })?;
 
     // Try to parse the YAML as a raw Value first to validate it's well-formed
     let raw_value: Result<Value, _> = serde_yaml::from_str(&config_str);
     if let Err(e) = raw_value {
-        return Err(anyhow::anyhow!("Invalid YAML in config file: {}", e));
+        return Err(crate::Error::ConfigParse {
+            path: path.to_path_buf(),
+            source: e,
+        });
     }
 
-    let config: Config = serde_yaml::from_str(&config_str)
-        .with_context(|| format!("Failed to parse config file: {}", path.display()))?;
+    let config: Config =
+        serde_yaml::from_str(&config_str).map_err(|e| crate::Error::ConfigParse {
+            path: path.to_path_buf(),
+            source: e,
+        })?;
 
     // Ignore patterns are compiled at lint time; compile them here too so
     // a bad pattern fails at load with the config location
     for pattern in &config.lintp.ignore {
-        glob::Pattern::new(pattern)
-            .map_err(|e| anyhow::anyhow!("Invalid ignore pattern '{}': {}", pattern, e))?;
+        glob::Pattern::new(pattern).map_err(|e| crate::Error::Glob {
+            kind: "ignore pattern",
+            pattern: pattern.clone(),
+            source: e,
+        })?;
     }
 
     // A matcher named after a boolean literal can never be referenced —
     // the parser resolves 'true'/'false' to booleans first
     for name in config.lintp.custom_matchers.keys() {
         if name == "true" || name == "false" {
-            return Err(anyhow::anyhow!(
+            return Err(crate::Error::Dsl(format!(
                 "Invalid matcher name '{}': shadowed by the boolean literal",
                 name
-            ));
+            )));
         }
     }
 
     // Parse custom matchers
-    let parsed_matchers = parse_custom_matchers(&config.lintp.custom_matchers)?;
+    let parsed_matchers = parse_custom_matchers(&config.lintp.custom_matchers)
+        .map_err(|e| crate::Error::Dsl(format!("{:#}", e)))?;
 
     // Parse every rule up front so config errors surface at startup
     // instead of when a matching file first appears
-    let parsed_rules = parse_rules(&config, &parsed_matchers)?;
+    let parsed_rules = parse_rules(&config, &parsed_matchers)
+        .map_err(|e| crate::Error::Dsl(format!("{:#}", e)))?;
 
     Ok(ParsedConfig {
         raw: config,
@@ -343,8 +391,13 @@ pub fn load_config(path: &Path) -> Result<ParsedConfig> {
     })
 }
 
+/// A loaded `lintp.yml`, with matchers and rules pre-parsed into DSL
+/// expressions so linting doesn't re-parse the same strings per file.
 pub struct ParsedConfig {
+    /// The deserialized config as written in YAML.
     pub raw: Config,
+    /// Custom matchers (`custom-matchers:`), parsed into expressions and
+    /// keyed by name.
     pub parsed_matchers: HashMap<String, Expression>,
     /// Every distinct rule string, pre-parsed. Populated by load_config;
     /// rules missing from this map are parsed lazily during linting.

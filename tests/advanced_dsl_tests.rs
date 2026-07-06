@@ -44,7 +44,7 @@ fn create_advanced_test_project() -> Result<TempDir> {
 /// Helper to evaluate an expression in a context
 fn eval_in_context(expr_str: &str, context: &EvaluationContext) -> Result<Value> {
     let expr = parse_expression(expr_str)?;
-    evaluate(&expr, context)
+    Ok(evaluate(&expr, context)?)
 }
 
 /// Helper to evaluate expression and expect boolean result
@@ -103,6 +103,35 @@ fn test_exists_function_basic() -> Result<()> {
     // Should not find non-existent files
     assert!(!eval_bool("exists('*.py')", &context)?);
     assert!(!eval_bool("exists('*.php')", &context)?);
+
+    Ok(())
+}
+
+/// A negative min/max must be rejected with an error, not silently wrap
+/// around to usize::MAX and always report a match.
+#[test]
+fn test_exists_negative_min_max_errors() -> Result<()> {
+    let project = create_advanced_test_project()?;
+    let custom_matchers = HashMap::new();
+
+    let test_path = project.path().join("src/components/Button.js");
+    let context = create_test_evaluation_context(&test_path, &custom_matchers);
+
+    let err = eval_in_context("exists('*.tmp', -1)", &context)
+        .expect_err("negative min must be rejected");
+    assert!(
+        err.to_string().contains("non-negative"),
+        "Expected a non-negative error message, got: {}",
+        err
+    );
+
+    let err = eval_in_context("exists('*.tmp', 0, -1)", &context)
+        .expect_err("negative max must be rejected");
+    assert!(
+        err.to_string().contains("non-negative"),
+        "Expected a non-negative error message, got: {}",
+        err
+    );
 
     Ok(())
 }

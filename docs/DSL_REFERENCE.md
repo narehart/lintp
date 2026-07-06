@@ -531,7 +531,7 @@ rule: 'in("${$BASENAME}.test.tsx", siblings("*.test.tsx"))'
 
 # A module entry file must sit in a directory of the same name
 # (single quotes inside a template inside a double-quoted string)
-rule: |
+rule: |-
   endsWith($PARENT, "${without($NAME, '.mod.ts')}")
 ```
 
@@ -586,16 +586,16 @@ rule: 'valid-extension &&
 
 ```yaml
 # Type mismatch - NOT operator with non-boolean
-rule: '!"string"'             # Error: NOT requires boolean
+rule: '!"string"'             # Error: NOT operator requires a boolean operand
 
 # Invalid function arguments
-rule: 'matches($NAME)'        # Error: matches requires 2 arguments
+rule: 'matches($NAME)'        # Error: matches() requires 2 arguments
 
 # Unknown variable
-rule: '$UNKNOWN == "test"'    # Error: Unknown variable
+rule: '$UNKNOWN == "test"'    # Error: Unknown variable: UNKNOWN
 
 # Unknown function
-rule: 'unknown_func($NAME)'   # Error: Unknown function
+rule: 'unknown_func($NAME)'   # Error: Unknown function: unknown_func
 ```
 
 Not every error surfaces at the same time. Config loading eagerly parses

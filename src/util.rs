@@ -9,6 +9,7 @@
 /// misinterpret the pattern entirely.
 ///
 /// A no-op on Unix, where paths never contain `\` in practice.
+#[must_use]
 pub fn forward_slashes(s: &str) -> String {
     s.replace('\\', "/")
 }

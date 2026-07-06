@@ -331,6 +331,206 @@ fn test_directory_validation() -> Result<()> {
     Ok(())
 }
 
+/// A per-entry WalkDir error (e.g. a permission-denied subdirectory) must
+/// be reported as a per-path failure and must not abort the whole lint run:
+/// readable files elsewhere in the tree still get reported.
+#[cfg(unix)]
+#[test]
+fn test_lint_reports_unreadable_directory_without_aborting() -> Result<()> {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp_dir = tempfile::tempdir()?;
+    let root = temp_dir.path();
+
+    // A readable file that should still be linted successfully
+    std::fs::write(root.join("good.txt"), "fine")?;
+
+    // A subdirectory we lock down so WalkDir can't read its contents
+    let locked_dir = root.join("locked");
+    std::fs::create_dir(&locked_dir)?;
+    std::fs::write(locked_dir.join("secret.txt"), "unreachable")?;
+
+    let original_perms = fs::metadata(&locked_dir)?.permissions();
+    fs::set_permissions(&locked_dir, fs::Permissions::from_mode(0o000))?;
+
+    // Restore permissions on the way out (even on panic) so tempfile can
+    // delete the directory during its own Drop.
+    struct RestorePerms(PathBuf, std::fs::Permissions);
+    impl Drop for RestorePerms {
+        fn drop(&mut self) {
+            let _ = fs::set_permissions(&self.0, self.1.clone());
+        }
+    }
+    let _restore = RestorePerms(locked_dir.clone(), original_perms);
+
+    let config_content = r#"
+lintp:
+  config:
+    .*: "true"
+    .dir: "true"
+  ignore: []
+"#;
+    let config: Config = serde_yaml::from_str(config_content)?;
+    let parsed_config = ParsedConfig {
+        raw: config,
+        parsed_matchers: HashMap::new(),
+        parsed_rules: HashMap::new(),
+    };
+
+    // Root is unreadable-as-non-root (e.g. CI running as root) would make
+    // this a no-op; skip in that case rather than produce a false pass/fail.
+    if fs::read_dir(&locked_dir).is_ok() {
+        eprintln!(
+            "skipping test_lint_reports_unreadable_directory_without_aborting: \
+             running with privileges that bypass directory permissions"
+        );
+        return Ok(());
+    }
+
+    let results = run_lint(root, &parsed_config, false)?;
+
+    assert!(
+        results
+            .iter()
+            .any(|r| matches!(r, LintResult::Success(path) if path.ends_with("good.txt"))),
+        "Expected good.txt to still be linted: {:?}",
+        results
+    );
+
+    assert!(
+        results.iter().any(|r| matches!(
+            r,
+            LintResult::Failure { path, rule, .. }
+                if path.ends_with("locked") && rule == "io"
+        )),
+        "Expected a failure reported for the unreadable 'locked' directory: {:?}",
+        results
+    );
+
+    Ok(())
+}
+
+/// A symlink whose target is a directory must be checked against `.dir`
+/// naming rules using the symlink's own name (previously a silent gap:
+/// `entry.file_type().is_dir()` is false for a symlink), while its
+/// contents are still never traversed — WalkDir's no-follow behavior is
+/// unchanged. A broken symlink (missing target) falls back to being
+/// treated as a file rather than a directory, without panicking.
+#[cfg(unix)]
+#[test]
+fn test_symlinked_directory_checked_against_dir_rule_but_not_traversed() -> Result<()> {
+    use std::os::unix::fs::symlink;
+
+    let temp_dir = tempfile::tempdir()?;
+    let root = temp_dir.path();
+
+    // The symlink's target lives entirely outside the linted root, so any
+    // result path under it would prove its contents were (wrongly) walked.
+    let target_dir = tempfile::tempdir()?;
+    std::fs::create_dir(target_dir.path().join("BadTarget"))?;
+    std::fs::write(
+        target_dir
+            .path()
+            .join("BadTarget")
+            .join("should-not-be-linted.js"),
+        "// must never be visited",
+    )?;
+
+    // A real directory that violates the naming rule
+    std::fs::create_dir(root.join("BadDir"))?;
+    std::fs::write(
+        root.join("BadDir").join("file.js"),
+        "// inside real bad dir",
+    )?;
+
+    // A symlink to a directory, itself violating the naming rule
+    symlink(target_dir.path().join("BadTarget"), root.join("LinkBAD"))?;
+
+    // A symlink whose target does not exist
+    symlink(root.join("does-not-exist"), root.join("BrokenLink"))?;
+
+    let config_content = r#"
+lintp:
+  config:
+    .dir: "matches($NAME, /^[a-z][a-z-]*$/)"
+    .*: "true"
+  ignore: []
+"#;
+    let config: Config = serde_yaml::from_str(config_content)?;
+    let parsed_config = ParsedConfig {
+        raw: config,
+        parsed_matchers: HashMap::new(),
+        parsed_rules: HashMap::new(),
+    };
+
+    let results = run_lint(root, &parsed_config, false)?;
+
+    // The real bad directory fails .dir
+    assert!(
+        results.iter().any(|r| matches!(
+            r,
+            LintResult::Failure { path, rule, .. } if path.ends_with("BadDir") && rule == ".dir"
+        )),
+        "Expected 'BadDir' to fail the .dir rule: {:?}",
+        results
+    );
+
+    // The symlinked directory is now also checked against .dir, and fails
+    assert!(
+        results.iter().any(|r| matches!(
+            r,
+            LintResult::Failure { path, rule, .. } if path.ends_with("LinkBAD") && rule == ".dir"
+        )),
+        "Expected symlinked directory 'LinkBAD' to fail the .dir rule: {:?}",
+        results
+    );
+
+    // The broken symlink does not panic and is handled as a file (falls
+    // through to the `.*` rule, which passes) rather than a `.dir` failure.
+    assert!(
+        results
+            .iter()
+            .any(|r| matches!(r, LintResult::Success(path) if path.ends_with("BrokenLink"))),
+        "Expected broken symlink 'BrokenLink' to be handled as a file without panicking: {:?}",
+        results
+    );
+
+    // The symlinked directory's contents are never visited: no result
+    // exists for anything under it.
+    assert!(
+        !results.iter().any(|r| {
+            let path = match r {
+                LintResult::Success(p) => p,
+                LintResult::Failure { path, .. } => path,
+            };
+            path.to_string_lossy().contains("should-not-be-linted")
+        }),
+        "The symlinked directory's contents must not be traversed: {:?}",
+        results
+    );
+
+    // The file inside the real 'BadDir' is reported exactly once (via the
+    // real directory), not duplicated.
+    let file_js_count = results
+        .iter()
+        .filter(|r| {
+            let path = match r {
+                LintResult::Success(p) => p,
+                LintResult::Failure { path, .. } => path,
+            };
+            path.ends_with("file.js")
+        })
+        .count();
+    assert_eq!(
+        file_js_count, 1,
+        "file.js inside BadDir should be reported exactly once: {:?}",
+        results
+    );
+
+    Ok(())
+}
+
 /// Tests for handling errors during linting
 #[test]
 fn test_lint_error_handling() -> Result<()> {

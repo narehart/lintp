@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -33,10 +33,9 @@ fn main() -> Result<()> {
         None => {
             let default_path = PathBuf::from("lintp.yml");
             if !default_path.exists() {
-                eprintln!(
-          "No config file found. Use --config to specify a config file path or create lintp.yml in the current directory."
-        );
-                std::process::exit(1);
+                bail!(
+                    "No config file found. Use --config to specify a config file path or create lintp.yml in the current directory."
+                );
             }
             default_path
         }

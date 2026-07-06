@@ -16,6 +16,30 @@ import { createHash } from "crypto";
 const MAX_REDIRECTS = 5;
 const REQUEST_TIMEOUT_MS = 30_000;
 
+/**
+ * Detects musl-based libc (e.g. Alpine Linux) the way esbuild/napi-rs do:
+ * Node's diagnostic report includes a `glibcVersionRuntime` field on glibc
+ * hosts; its absence on Linux means the process is running under musl.
+ * Any failure to read the report (unsupported Node build, odd host, etc.)
+ * is treated as "not musl" rather than risking a false positive.
+ */
+export function isMusl(): boolean {
+  if (os.platform() !== "linux") {
+    return false;
+  }
+  try {
+    if (!process.report || typeof process.report.getReport !== "function") {
+      return false;
+    }
+    const { header } = process.report.getReport() as {
+      header?: { glibcVersionRuntime?: unknown };
+    };
+    return !header?.glibcVersionRuntime;
+  } catch {
+    return false;
+  }
+}
+
 export function getPlatformTarget(): string {
   const platform = os.platform();
   const arch = os.arch();
@@ -30,10 +54,11 @@ export function getPlatformTarget(): string {
       return "x86_64-apple-darwin";
     }
   } else if (platform === "linux") {
+    const musl = isMusl();
     if (arch === "arm64") {
-      return "aarch64-unknown-linux-gnu";
+      return musl ? "aarch64-unknown-linux-musl" : "aarch64-unknown-linux-gnu";
     } else if (arch === "x64") {
-      return "x86_64-unknown-linux-gnu";
+      return musl ? "x86_64-unknown-linux-musl" : "x86_64-unknown-linux-gnu";
     }
   }
 
@@ -58,12 +83,17 @@ const PLATFORM_PACKAGES = new Set([
 ]);
 
 export function getPlatformPackageName(): string | null {
-  const key = `${os.platform()}-${os.arch()}`;
+  const platform = os.platform();
+  const key = `${platform}-${os.arch()}`;
+
+  if (platform === "linux" && PLATFORM_PACKAGES.has(key) && isMusl()) {
+    return `lintp-${key}-musl`;
+  }
   if (PLATFORM_PACKAGES.has(key)) {
     return `lintp-${key}`;
   }
   // Windows on ARM runs x64 binaries via emulation
-  if (os.platform() === "win32") {
+  if (platform === "win32") {
     return "lintp-win32-x64";
   }
   return null;
@@ -242,10 +272,27 @@ export function handleBinaryError(
   binaryPath: string
 ): void {
   if (err.code === "ENOENT") {
-    console.error(`Error: Binary not found at: ${binaryPath}`);
-    console.error(
-      "Please ensure you have the correct binary for your platform."
-    );
+    if (existsSync(binaryPath) && process.platform === "linux") {
+      // On musl-based distros (e.g. Alpine), spawning a glibc binary fails
+      // with ENOENT even though the file is right there on disk, which makes
+      // the generic "not found" message actively misleading.
+      console.error(
+        `Error: Binary exists at ${binaryPath} but could not be executed.`
+      );
+      console.error(
+        "This usually means you're on a musl-based distro (e.g. Alpine Linux), " +
+          "which cannot run lintp's glibc binaries."
+      );
+      console.error(
+        "Install a glibc compatibility layer (e.g. `apk add gcompat` or " +
+          "`libc6-compat`), or build from source via `cargo install lintp`."
+      );
+    } else {
+      console.error(`Error: Binary not found at: ${binaryPath}`);
+      console.error(
+        "Please ensure you have the correct binary for your platform."
+      );
+    }
     process.exit(1);
   }
   throw err;
@@ -303,7 +350,13 @@ export async function main(): Promise<void> {
 
     installSignalForwarding(child);
   } catch (error) {
-    console.error("Failed to start lintp:", error);
+    // getPlatformTarget()/getAssetName() throw a clean, expected
+    // "Unsupported platform: X Y" Error; printing the full error object here
+    // would dump its stack trace for what is not actually a crash.
+    console.error(
+      "Failed to start lintp:",
+      error instanceof Error ? error.message : error
+    );
     process.exit(1);
   }
 }

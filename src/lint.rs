@@ -10,9 +10,15 @@ use crate::dsl::evaluator::{evaluate, EvaluationContext, FsCache, RegexCache, Va
 use crate::dsl::parser::parse_expression;
 use crate::util::forward_slashes;
 
+/// Outcome of checking a single file or directory against its applicable
+/// rule.
 #[derive(Debug)]
 pub enum LintResult {
+    /// The path matched its applicable rule (or no rule applied to it).
     Success(PathBuf),
+    /// The path failed its applicable rule, or could not be checked at all
+    /// (e.g. an I/O error reading the path), with `rule` identifying which
+    /// rule key was applied (or `"io"` for a filesystem access failure).
     Failure {
         path: PathBuf,
         rule: String,
@@ -30,7 +36,23 @@ struct LintCaches<'a> {
     regex: &'a RegexCache,
 }
 
-pub fn run_lint(dir: &Path, config: &ParsedConfig, verbose: bool) -> Result<Vec<LintResult>> {
+/// Walk `dir` and check every file and directory against `config`'s rules,
+/// returning one [`LintResult`] per visited path (after ignore patterns are
+/// applied). A per-path I/O error (e.g. a permission-denied subdirectory) is
+/// reported as a [`LintResult::Failure`] rather than aborting the run.
+///
+/// # Errors
+///
+/// Returns [`crate::Error::Glob`] if an ignore or path-rule glob pattern
+/// fails to compile, [`crate::Error::Dsl`] if a rule expression fails to
+/// parse or fails to evaluate (e.g. an unknown variable or matcher
+/// reference), or [`crate::Error::Internal`] if a walked path unexpectedly
+/// has no file name (should not occur in practice).
+pub fn run_lint(
+    dir: &Path,
+    config: &ParsedConfig,
+    verbose: bool,
+) -> std::result::Result<Vec<LintResult>, crate::Error> {
     let mut results = Vec::new();
 
     let ignore_patterns: Vec<Pattern> = config
@@ -38,9 +60,14 @@ pub fn run_lint(dir: &Path, config: &ParsedConfig, verbose: bool) -> Result<Vec<
         .lintp
         .ignore
         .iter()
-        .map(|pattern| Pattern::new(pattern))
-        .collect::<Result<Vec<Pattern>, _>>()
-        .with_context(|| "Failed to compile ignore patterns")?;
+        .map(|pattern| {
+            Pattern::new(pattern).map_err(|e| crate::Error::Glob {
+                kind: "ignore pattern",
+                pattern: pattern.clone(),
+                source: e,
+            })
+        })
+        .collect::<std::result::Result<Vec<Pattern>, crate::Error>>()?;
 
     // Compile path-rule globs once instead of once per visited file
     let mut path_rule_patterns: Vec<(Pattern, &HashMap<String, RuleEntry>)> = config
@@ -52,9 +79,13 @@ pub fn run_lint(dir: &Path, config: &ParsedConfig, verbose: bool) -> Result<Vec<
         .map(|(glob_pattern, pattern_rules)| {
             Pattern::new(glob_pattern)
                 .map(|pattern| (pattern, pattern_rules))
-                .with_context(|| format!("Invalid glob pattern: {}", glob_pattern))
+                .map_err(|e| crate::Error::Glob {
+                    kind: "path-rule glob",
+                    pattern: glob_pattern.clone(),
+                    source: e,
+                })
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<std::result::Result<Vec<_>, crate::Error>>()?;
     // Overlapping scopes merge in order, later entries overwriting earlier
     // ones, so sort ascending by specificity (pattern length, then text):
     // when both src/* and src/ui/* match, src/ui/* wins — deterministically.
@@ -93,11 +124,29 @@ pub fn run_lint(dir: &Path, config: &ParsedConfig, verbose: bool) -> Result<Vec<
             }
         })
     {
-        let entry = entry?;
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                let path = e.path().unwrap_or(dir).to_path_buf();
+                results.push(LintResult::Failure {
+                    path,
+                    rule: "io".to_string(),
+                    message: format!("Could not read: {}", e),
+                });
+                continue;
+            }
+        };
         let path = entry.path();
 
-        // Get relative path from the linted directory
-        let rel_path = path.strip_prefix(dir)?;
+        // Get relative path from the linted directory. Unreachable in
+        // practice: every entry here was yielded by walking `dir` itself.
+        let rel_path = path.strip_prefix(dir).map_err(|_| {
+            crate::Error::Internal(format!(
+                "Walked path '{}' is not under '{}'",
+                path.display(),
+                dir.display()
+            ))
+        })?;
 
         if verbose {
             println!("Checking: {}", rel_path.display());
@@ -110,15 +159,23 @@ pub fn run_lint(dir: &Path, config: &ParsedConfig, verbose: bool) -> Result<Vec<
             &path_rule_patterns,
         );
 
-        // Apply rules
+        // Apply rules. Unreachable in practice: `min_depth(1)` excludes the
+        // root, so every walked entry has a parent and thus a file name.
         let name = path
             .file_name()
-            .ok_or_else(|| anyhow::anyhow!("Failed to get file name"))?
+            .ok_or_else(|| {
+                crate::Error::Internal(format!("Walked path '{}' has no file name", path.display()))
+            })?
             .to_string_lossy();
 
         // WalkDir already stat'd this entry to build it; asking the entry
         // instead of re-stat'ing `path` avoids a redundant syscall per file.
-        let is_dir = entry.file_type().is_dir();
+        // A symlink whose target is a directory is treated as a directory
+        // for rule-matching purposes (its name is checked against `.dir`
+        // rules) even though WalkDir does not traverse into it; a broken
+        // symlink (missing target) falls through and is treated as a file.
+        let is_dir =
+            entry.file_type().is_dir() || (entry.path_is_symlink() && entry.path().is_dir());
         let result = apply_rules(
             &name,
             path,
@@ -126,7 +183,8 @@ pub fn run_lint(dir: &Path, config: &ParsedConfig, verbose: bool) -> Result<Vec<
             &applicable_rules,
             &config.parsed_matchers,
             &mut caches,
-        )?;
+        )
+        .map_err(|e| crate::Error::Dsl(format!("{:#}", e)))?;
 
         results.push(result);
     }
@@ -160,7 +218,7 @@ fn find_applicable_rules<'a>(
     for (pattern, pattern_rules) in path_rule_patterns {
         if pattern.matches_path(path) {
             // Merge pattern rules, overriding global rules
-            for (key, value) in pattern_rules.iter() {
+            for (key, value) in *pattern_rules {
                 rules.insert(key.as_str(), value);
             }
         }
@@ -239,7 +297,7 @@ fn apply_rules(
             .filter(|key| key.starts_with('.') && path_str.ends_with(**key))
             .max_by_key(|key| key.len())
         {
-            extension = key.to_string();
+            extension = (*key).to_string();
         }
 
         // If no specific extension rule found, fallback to .*
@@ -306,7 +364,7 @@ fn explain_failure(rule_expr: &Expression, context: &EvaluationContext) -> Optio
     let failed: Vec<String> = conjuncts
         .iter()
         .filter(|conjunct| !matches!(evaluate(conjunct, context), Ok(Value::Boolean(true))))
-        .map(|conjunct| conjunct.to_string())
+        .map(ToString::to_string)
         .collect();
 
     if failed.is_empty() {

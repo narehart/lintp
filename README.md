@@ -92,10 +92,11 @@ $item      # current item inside any(), all(), map(), filter()
 ```
 
 ```yaml title="lintp.yml — variables in matchers"
-custom-matchers:
-  js-file: '$EXT == "js"'
-  in-src: 'contains($PATH, "/src/")'
-  has-js-sibling: 'any(siblings("*"), endsWith($item, ".js"))'
+lintp:
+  custom-matchers:
+    js-file: '$EXT == "js"'
+    in-src: 'contains($PATH, "/src/")'
+    has-js-sibling: 'any(siblings("*"), endsWith($item, ".js"))'
 ```
 
 ## Configuration <!-- note: rules, messages, ignore -->
@@ -105,10 +106,11 @@ Rule keys are **suffix patterns**, not just extensions: a file matches every key
 A key can group several suffixes with brace alternation — each expansion gets the same rule and message:
 
 ```yaml title="lintp.yml — grouped suffixes"
-config:
-  ".{png,jpg,jpeg,gif,webp,svg}":
-    rule: "camelCase"
-    message: "image files are camelCase"
+lintp:
+  config:
+    ".{png,jpg,jpeg,gif,webp,svg}":
+      rule: "camelCase"
+      message: "image files are camelCase"
 ```
 
 Suffix matching has one subtlety with dotfiles: a file literally named `.rules` also matches a `.rules:` key, but as a dotfile its `$EXT` is `""` and its `$BASENAME` is the full dotted name. Write `$EXT == "rules"` when a rule should apply only to real `.rules` extensions — or use the behavior deliberately: `.gitignore:` is a valid key for targeting that exact file.
@@ -118,16 +120,17 @@ Suffix matching has one subtlety with dotfiles: a file literally named `.rules` 
 A top-level key that is a glob pattern holds its own suffix→rule map, applied only to matching paths — and it **overrides** the global rule for the same suffix there. Globs match the path relative to the linted directory, and `*` crosses `/`, so `src/ui/*` covers the whole subtree. When several scopes match the same path, the most specific (longest pattern) wins: `src/ui/*` beats `src/*` for files under `src/ui/`. Braces expand in scope keys too: `"api/{auth,billing}/*"` is two scopes sharing one rule map.
 
 ```yaml title="lintp.yml — per-directory conventions"
-config:
-  .ts: "false" # default-deny: a .ts file must live in a listed location
-  "src/ecs/systems/*":
-    .ts:
-      rule: 'matches($BASENAME, /^[a-z][a-zA-Z0-9]*System$/) && exists("${$BASENAME}.test.ts")'
-      message: "systems are camelCase, end in System, and need a sibling test"
-  "src/hooks/*":
-    .ts:
-      rule: "matches($BASENAME, /^use[A-Z][a-zA-Z0-9]*$/)"
-      message: "hooks are named useX"
+lintp:
+  config:
+    .ts: "false" # default-deny: a .ts file must live in a listed location
+    "src/ecs/systems/*":
+      .ts:
+        rule: 'matches($BASENAME, /^[a-z][a-zA-Z0-9]*System$/) && exists("${$BASENAME}.test.ts")'
+        message: "systems are camelCase, end in System, and need a sibling test"
+    "src/hooks/*":
+      .ts:
+        rule: "matches($BASENAME, /^use[A-Z][a-zA-Z0-9]*$/)"
+        message: "hooks are named useX"
 ```
 
 Prefer this over one global rule that chains `($PARENT == "./src/x" && ...) || ...` branches: each location gets its own message, and failures point at the one rule that applies instead of printing the whole chain.
@@ -153,10 +156,11 @@ lintp:
 Any rule can be a map with a `message` that replaces the raw expression in failure output — point teammates at your conventions doc instead of a regex.
 
 ```yaml title="lintp.yml — custom message"
-config:
-  .tsx:
-    rule: "component-file"
-    message: "Components must be PascalCase (see CONTRIBUTING.md)"
+lintp:
+  config:
+    .tsx:
+      rule: "component-file"
+      message: "Components must be PascalCase (see CONTRIBUTING.md)"
 ```
 
 ```text title="shell — failure output"
@@ -195,6 +199,8 @@ lintp --verbose                # show every file checked
 ```
 
 Exit code `0` when everything passes, `1` on any violation or configuration error — a one-line CI gate. When a rule is a chain of `&&` conditions, the failing condition(s) are listed in the `(failed: …)` suffix so you don't have to bisect composed rules by hand.
+
+**Symlinks:** lintp does not follow symlinks. A symlinked directory's name IS checked against `.dir` rules, but its contents are not traversed.
 
 ## Best Practices <!-- note: composing rules that scale -->
 

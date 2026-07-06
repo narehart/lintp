@@ -51,8 +51,10 @@ react-component: 'in($EXT, ["tsx", "jsx"]) && PascalCase'
 # React hooks (must start with "use")
 react-hook: 'startsWith($BASENAME, "use") && camelCase'
 
-# Story files for Storybook
-story-file: 'endsWith($BASENAME, ".stories") && PascalCase'
+# Story files for Storybook — ".stories" chains onto $BASENAME (only the
+# final extension is stripped), so PascalCase is checked against the stem
+# with the ".stories" suffix removed.
+story-file: 'endsWith($BASENAME, ".stories") && matches(without($BASENAME, ".stories"), /^[A-Z][a-zA-Z0-9]*$/)'
 ```
 
 ### Node.js Backend Patterns

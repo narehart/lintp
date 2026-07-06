@@ -1,4 +1,4 @@
-use anyhow::{Context as AnyhowContext, Result};
+use anyhow::Result;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -96,52 +96,11 @@ fn create_test_project_with_errors() -> Result<TestProject> {
     Ok(test_project)
 }
 
-/// Build the binary for testing
-fn build_binary() -> Result<PathBuf> {
-    // Get the project root directory
-    let project_root = std::env::current_dir()?;
-
-    // Run cargo build
-    let status = Command::new("cargo")
-        .current_dir(&project_root)
-        .args(["build"])
-        .status()?;
-
-    if !status.success() {
-        return Err(anyhow::anyhow!("Failed to build binary"));
-    }
-
-    // Construct the path to the binary
-    let binary_path = project_root.join("target").join("debug").join("lintp");
-
-    // Verify the binary exists
-    if !binary_path.exists() {
-        // Try to list files in the directory to see what's available
-        let debug_dir = binary_path.parent().unwrap();
-        let entries = std::fs::read_dir(debug_dir)
-            .with_context(|| format!("Failed to read directory: {}", debug_dir.display()))?;
-
-        let files: Vec<String> = entries
-            .filter_map(Result::ok)
-            .map(|entry| entry.file_name().to_string_lossy().to_string())
-            .collect();
-
-        return Err(anyhow::anyhow!(
-            "Binary not found at {}. Files in {}: {:?}",
-            binary_path.display(),
-            debug_dir.display(),
-            files
-        ));
-    }
-
-    Ok(binary_path)
-}
-
 /// Integration test for a valid project
 #[test]
 fn test_valid_project() -> Result<()> {
     let test_project = create_test_project()?;
-    let binary_path = build_binary()?;
+    let binary_path = PathBuf::from(env!("CARGO_BIN_EXE_lintp"));
 
     let output = Command::new(&binary_path)
         .current_dir(&test_project.root_path)
@@ -174,7 +133,7 @@ fn test_valid_project() -> Result<()> {
 #[test]
 fn test_project_with_errors() -> Result<()> {
     let test_project = create_test_project_with_errors()?;
-    let binary_path = build_binary()?;
+    let binary_path = PathBuf::from(env!("CARGO_BIN_EXE_lintp"));
 
     let output = Command::new(&binary_path)
         .current_dir(&test_project.root_path)
@@ -225,7 +184,7 @@ fn test_project_with_errors() -> Result<()> {
 #[test]
 fn test_with_custom_config_path() -> Result<()> {
     let test_project = create_test_project()?;
-    let binary_path = build_binary()?;
+    let binary_path = PathBuf::from(env!("CARGO_BIN_EXE_lintp"));
 
     // Move the config file to a different location
     let custom_config_path = test_project.root_path.join("custom-config.yml");
@@ -266,7 +225,7 @@ fn test_with_custom_config_path() -> Result<()> {
 #[test]
 fn test_with_verbose_output() -> Result<()> {
     let test_project = create_test_project()?;
-    let binary_path = build_binary()?;
+    let binary_path = PathBuf::from(env!("CARGO_BIN_EXE_lintp"));
 
     let output = Command::new(&binary_path)
         .current_dir(&test_project.root_path)
@@ -301,7 +260,7 @@ fn test_with_verbose_output() -> Result<()> {
 #[test]
 fn test_with_missing_config() -> Result<()> {
     let test_project = create_test_project()?;
-    let binary_path = build_binary()?;
+    let binary_path = PathBuf::from(env!("CARGO_BIN_EXE_lintp"));
 
     // Remove the config file
     std::fs::remove_file(test_project.root_path.join("lintp.yml"))?;

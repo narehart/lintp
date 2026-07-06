@@ -22,7 +22,6 @@ jobs:
             tsconfig.build.json
             bin/
             README.md
-            .npmignore
           sparse-checkout-cone-mode: false
 
       - name: Install asdf

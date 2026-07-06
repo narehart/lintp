@@ -17,7 +17,9 @@ const PLATFORM_PACKAGES = [
   "lintp-darwin-arm64",
   "lintp-darwin-x64",
   "lintp-linux-arm64",
+  "lintp-linux-arm64-musl",
   "lintp-linux-x64",
+  "lintp-linux-x64-musl",
   "lintp-win32-x64",
 ];
 
