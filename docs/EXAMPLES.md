@@ -78,10 +78,12 @@ lintp:
     # File type identification
     component-file: 'in($EXT, ["tsx", "jsx"])'
     hook-file: 'startsWith($BASENAME, "use") && in($EXT, ["ts", "js"])'
-    context-file: 'endsWith($BASENAME, "Context")'
 
-    # Structure validation
-    has-test: 'any(siblings("*.test.*"), contains($item, $BASENAME))'
+    # ".test"/".spec"/".stories" chain onto $BASENAME (only the final
+    # ".tsx"/".ts" is stripped), so these allow a trailing dotted suffix
+    # segment on top of the PascalCase/kebab-case stem.
+    PascalCase-dotted: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*(?:\\.[a-z]+)*$/)"
+    kebab-dotted: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z]+)*$/)"
 
   config:
     # React components must be PascalCase
@@ -93,12 +95,12 @@ lintp:
     .js: "kebab-case || camelCase"
 
     # Test files
-    .test.tsx: "PascalCase || kebab-case"
-    .test.ts: "PascalCase || kebab-case"
-    .spec.tsx: "PascalCase || kebab-case"
+    .test.tsx: "PascalCase-dotted || kebab-dotted"
+    .test.ts: "PascalCase-dotted || kebab-dotted"
+    .spec.tsx: "PascalCase-dotted || kebab-dotted"
 
     # Stories for Storybook
-    .stories.tsx: "PascalCase"
+    .stories.tsx: "PascalCase-dotted"
 
     # Style files
     .css: "kebab-case || PascalCase"
@@ -128,6 +130,9 @@ lintp:
     # Naming conventions
     PascalCase: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
     kebab-case: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)"
+    # ".api" chains onto $BASENAME (only the final ".ts"/".js" is stripped),
+    # so this allows a trailing ".api" segment on top of the kebab-case stem.
+    kebab-dotted: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z]+)*$/)"
 
     # Next.js specific patterns
     page-file: 'contains($PATH, "/pages/") || contains($PATH, "/app/")'
@@ -136,7 +141,7 @@ lintp:
 
     # File validations
     valid-page: "page-file && (kebab-case || layout-file)"
-    valid-api: "api-route && kebab-case"
+    valid-api: "api-route && kebab-dotted"
 
   config:
     # Pages directory
@@ -166,11 +171,6 @@ lintp:
   custom-matchers:
     PascalCase: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
     kebab-case: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)"
-
-    # Vue-specific patterns
-    vue-component: '$EXT == "vue" && PascalCase'
-    vue-page: 'contains($PATH, "/pages/") && $EXT == "vue"'
-    vue-layout: 'contains($PATH, "/layouts/") && $EXT == "vue"'
 
   config:
     .vue: "PascalCase"
@@ -245,14 +245,8 @@ lintp:
     PascalCase: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
 
     # Backend patterns
-    route-file: 'contains($PATH, "/routes/")'
     controller-file: 'contains($PATH, "/controllers/") && endsWith($BASENAME, "Controller")'
     model-file: 'contains($PATH, "/models/")'
-    middleware-file: 'contains($PATH, "/middleware/")'
-    util-file: 'contains($PATH, "/utils/")'
-
-    # Structure validation
-    has-test: 'any(siblings("*.test.js"), true) || any(find("./tests", "*"), contains($item, $BASENAME))'
 
   config:
     # PascalCase is allowed for models ("User.js") and for controller
@@ -346,20 +340,6 @@ lintp:
   custom-matchers:
     kebab-case: "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)"
     PascalCase: "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)"
-
-    # Library structure
-    is-source: 'contains($PATH, "/src/")'
-    is-test: 'contains($PATH, "/test/") || contains($NAME, "test")'
-    is-example: 'contains($PATH, "/example")'
-    is-doc: 'contains($PATH, "/docs/")'
-
-    # Export validation
-    has-index: 'exists("src/index.ts") || exists("src/index.js")'
-    has-types: 'exists("*.d.ts") || exists("types/*.d.ts")'
-    has-package-json: 'exists("package.json")'
-
-    # Complete library validation
-    valid-library: "has-index && has-package-json"
 
     # $BASENAME on "index.d.ts" is "index.d" (only the final ".ts" is
     # stripped), so type declarations are validated against the real
@@ -460,8 +440,13 @@ lintp:
     # Environment-specific configs
     env-config: 'matches($BASENAME, /^[a-z0-9-]+\.(dev|prod|test|staging)$/) || in($BASENAME, ["development", "production", "test"])'
 
-    # Config file validation
-    docker-file: 'in($BASENAME, ["Dockerfile", "docker-compose"]) || startsWith($BASENAME, "Dockerfile.")'
+    # Config file validation — Dockerfile has no extension, so $EXT is ""
+    # and no ".dockerfile" suffix key can ever match it; it (and other
+    # extensionless config files below) are only reachable through the
+    # ".*" catch-all.
+    docker-file:
+      'in($NAME, ["Dockerfile", "docker-compose.yml", "docker-compose.yaml"]) ||
+      startsWith($NAME, "Dockerfile.") || endsWith($NAME, ".dockerfile")'
     ci-config: 'contains($PATH, "/.github/") || contains($PATH, "/.gitlab/") || in($BASENAME, ["Jenkinsfile"])'
 
     # Dotfiles and dot-directories (".env", ".github", ".gitignore", ...):
@@ -476,6 +461,11 @@ lintp:
     .toml: "kebab-case"
     .env: "kebab-case || env-config || dotfile"
     .dockerfile: "docker-file"
+
+    # Extensionless files (Dockerfile, Jenkinsfile, dotfiles) only reach
+    # this rule; anything with a recognized extension passes through
+    # unchanged.
+    .*: '$EXT != "" || docker-file || ci-config || dotfile'
     .dir: "kebab-case || dotfile"
 
   ignore:
@@ -531,6 +521,13 @@ lintp:
     - dist
     - coverage
 ```
+
+> **Warning:** `find(".", ...)` resolves `"."` against the process's current
+> working directory, not the `[DIR]` argument passed to lintp. If you run
+> `lintp /path/to/project` from somewhere else, `has-test` above will search
+> the wrong tree and every source file will fail its test-coverage check.
+> Run lintp from the project root (or `cd` into it first) whenever a rule
+> uses `find(".", ...)`.
 
 ### Security Validation
 
