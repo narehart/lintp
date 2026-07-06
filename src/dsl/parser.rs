@@ -12,7 +12,20 @@ struct DslParser;
 
 /// Parses a rule, custom-matcher, or template-embedded expression string,
 /// enforcing that the whole input is consumed (trailing garbage is an error).
-pub fn parse_expression(input: &str) -> Result<Expression> {
+///
+/// # Errors
+///
+/// Returns [`crate::Error::Dsl`] if the input is not a syntactically valid
+/// expression.
+pub fn parse_expression(input: &str) -> std::result::Result<Expression, crate::Error> {
+    parse_expression_impl(input).map_err(|e| crate::Error::Dsl(format!("{:#}", e)))
+}
+
+/// Implementation behind [`parse_expression`]; kept separate (and
+/// anyhow-based) because it's also called from `dsl::functions` while
+/// evaluating a rule, where the surrounding `anyhow::Context` chaining is
+/// more convenient than converting back and forth through [`crate::Error`].
+pub(crate) fn parse_expression_impl(input: &str) -> Result<Expression> {
     // Parse the input using Pest - use top_level to enforce EOI
     let pairs = DslParser::parse(Rule::top_level, input)
         .map_err(|e| anyhow::anyhow!("Failed to parse expression: {}", e))?;

@@ -184,6 +184,33 @@ lintp:
     Ok(())
 }
 
+/// Library consumers match on [`lintp::Error`] variants instead of parsing
+/// message text: a nonexistent config path yields `ConfigNotFound`, and
+/// syntactically invalid YAML yields `ConfigParse`.
+#[test]
+fn test_error_variants_are_matchable() -> Result<()> {
+    let result = load_config(Path::new("/nonexistent/directory/lintp.yml"));
+    let err = result
+        .err()
+        .expect("nonexistent config path should fail to load");
+    assert!(
+        matches!(err, lintp::Error::ConfigNotFound { .. }),
+        "expected ConfigNotFound, got: {}",
+        err
+    );
+
+    let bad_yaml = create_test_config("lintp: [unterminated")?;
+    let result = load_config(&bad_yaml.config_path);
+    let err = result.err().expect("malformed YAML should fail to load");
+    assert!(
+        matches!(err, lintp::Error::ConfigParse { .. }),
+        "expected ConfigParse, got: {}",
+        err
+    );
+
+    Ok(())
+}
+
 /// Tests for config with circular references in custom matchers
 #[test]
 fn test_config_with_circular_references() -> Result<()> {

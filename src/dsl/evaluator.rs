@@ -69,7 +69,26 @@ pub struct EvaluationContext<'a> {
     pub regex_cache: Option<&'a RegexCache>,
 }
 
-pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value> {
+/// Evaluates a parsed rule or custom-matcher expression against `context`.
+///
+/// # Errors
+///
+/// Returns [`crate::Error::Dsl`] if the expression references an unknown
+/// variable, matcher, or custom-matcher reference; calls a built-in
+/// function with the wrong argument count or type; or otherwise fails to
+/// evaluate to the expected type (e.g. a non-boolean operand to `&&`).
+pub fn evaluate(
+    expr: &Expression,
+    context: &EvaluationContext,
+) -> std::result::Result<Value, crate::Error> {
+    evaluate_impl(expr, context).map_err(|e| crate::Error::Dsl(format!("{:#}", e)))
+}
+
+/// Implementation behind [`evaluate`]; kept separate (and anyhow-based)
+/// because it recurses into itself and into `dsl::functions`, where the
+/// surrounding `anyhow::Context` chaining is more convenient than
+/// converting back and forth through [`crate::Error`] on every call.
+pub(crate) fn evaluate_impl(expr: &Expression, context: &EvaluationContext) -> Result<Value> {
     match expr {
         Expression::Variable(name) => {
             if let Some(value) = context.variables.get(name) {
@@ -113,7 +132,7 @@ pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value>
             let mut values = Vec::new();
 
             for item in items {
-                let value = evaluate(item, context)?;
+                let value = evaluate_impl(item, context)?;
                 values.push(value);
             }
 
@@ -121,7 +140,7 @@ pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value>
         }
 
         Expression::BinaryOp { op, left, right } => {
-            let left_value = evaluate(left, context)?;
+            let left_value = evaluate_impl(left, context)?;
 
             // Short-circuit evaluation for logical operators
             match op {
@@ -138,7 +157,7 @@ pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value>
                 _ => {}
             }
 
-            let right_value = evaluate(right, context)?;
+            let right_value = evaluate_impl(right, context)?;
 
             match op {
                 BinaryOperator::And => match (left_value, right_value) {
@@ -183,7 +202,7 @@ pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value>
         }
 
         Expression::UnaryOp { op, expr } => {
-            let value = evaluate(expr, context)?;
+            let value = evaluate_impl(expr, context)?;
 
             match op {
                 UnaryOperator::Not => match value {
@@ -204,23 +223,23 @@ pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value>
             // It must NOT be evaluated eagerly: `$item` is only bound while
             // iterating, so the lambda is passed through as an expression.
             if matches!(name.as_str(), "any" | "all" | "map" | "filter") && args.len() == 2 {
-                let collection = evaluate(&args[0], context)?;
-                return functions::call_lambda_function(name, &collection, &args[1], context);
+                let collection = evaluate_impl(&args[0], context)?;
+                return functions::call_lambda_function_impl(name, &collection, &args[1], context);
             }
 
             let mut arg_values = Vec::new();
 
             for arg in args {
-                let value = evaluate(arg, context)?;
+                let value = evaluate_impl(arg, context)?;
                 arg_values.push(value);
             }
 
-            functions::call_function(name, &arg_values, context)
+            functions::call_function_impl(name, &arg_values, context)
         }
 
         Expression::Reference(name) => {
             if let Some(expr) = context.custom_matchers.get(name) {
-                evaluate(expr, context)
+                evaluate_impl(expr, context)
             } else {
                 Err(anyhow::anyhow!("Unknown reference: {}", name))
             }
@@ -235,7 +254,7 @@ pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value>
                         result.push_str(s);
                     }
                     StringTemplatePart::Expression(expr) => {
-                        let value = evaluate(expr, context)?;
+                        let value = evaluate_impl(expr, context)?;
                         result.push_str(&value.to_string());
                     }
                 }
@@ -245,8 +264,8 @@ pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value>
         }
 
         Expression::Index { expr, index } => {
-            let expr_value = evaluate(expr, context)?;
-            let index_value = evaluate(index, context)?;
+            let expr_value = evaluate_impl(expr, context)?;
+            let index_value = evaluate_impl(index, context)?;
             let expr_clone = expr_value.clone();
             let index_clone = index_value.clone();
 
