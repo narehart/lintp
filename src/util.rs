@@ -19,11 +19,17 @@ mod tests {
 
     #[test]
     fn test_forward_slashes_converts_backslashes() {
-        assert_eq!(forward_slashes(r"src\components\Button.tsx"), "src/components/Button.tsx");
+        assert_eq!(
+            forward_slashes(r"src\components\Button.tsx"),
+            "src/components/Button.tsx"
+        );
     }
 
     #[test]
     fn test_forward_slashes_is_noop_on_unix_style_paths() {
-        assert_eq!(forward_slashes("src/components/Button.tsx"), "src/components/Button.tsx");
+        assert_eq!(
+            forward_slashes("src/components/Button.tsx"),
+            "src/components/Button.tsx"
+        );
     }
 }

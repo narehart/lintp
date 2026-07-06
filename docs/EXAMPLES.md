@@ -365,7 +365,7 @@ lintp:
     # stripped), so type declarations are validated against the real
     # stem — the name with ".d.ts" removed entirely.
     dts-stem-valid: 'matches(without($NAME, ".d.ts"), /^[A-Z][a-zA-Z0-9]*$/) ||
-                     matches(without($NAME, ".d.ts"), /^[a-z0-9]+(?:-[a-z0-9]+)*$/)'
+      matches(without($NAME, ".d.ts"), /^[a-z0-9]+(?:-[a-z0-9]+)*$/)'
 
   config:
     .ts: "PascalCase || kebab-case"

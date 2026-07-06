@@ -103,9 +103,7 @@ pub fn evaluate(expr: &Expression, context: &EvaluationContext) -> Result<Value>
                 .with_context(|| format!("Invalid regex pattern: {}", pattern))?;
 
             if let Some(cache) = context.regex_cache {
-                cache
-                    .borrow_mut()
-                    .insert(pattern.clone(), regex.clone());
+                cache.borrow_mut().insert(pattern.clone(), regex.clone());
             }
 
             Ok(Value::Regex(regex))

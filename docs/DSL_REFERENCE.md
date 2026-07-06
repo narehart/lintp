@@ -10,13 +10,13 @@ The lintp DSL is a powerful expression language for defining file and directory 
 
 ### Built-in File Variables
 
-| Variable    | Description                       | Example Value                    |
-| ----------- | --------------------------------- | --------------------------------- |
-| `$NAME`     | Full filename including extension | `"Button.tsx"`                    |
-| `$BASENAME` | Filename without extension        | `"Button"`                        |
-| `$EXT`      | File extension (without dot)      | `"tsx"`                           |
-| `$PATH`     | Full file path                    | `"./src/components/Button.tsx"`   |
-| `$PARENT`   | Parent directory path             | `"./src/components"`              |
+| Variable    | Description                       | Example Value                   |
+| ----------- | --------------------------------- | ------------------------------- |
+| `$NAME`     | Full filename including extension | `"Button.tsx"`                  |
+| `$BASENAME` | Filename without extension        | `"Button"`                      |
+| `$EXT`      | File extension (without dot)      | `"tsx"`                         |
+| `$PATH`     | Full file path                    | `"./src/components/Button.tsx"` |
+| `$PARENT`   | Parent directory path             | `"./src/components"`            |
 
 `$PATH` and `$PARENT` reflect however the CLI was invoked, not a fixed
 absolute form — running `lintp` against the default `.` directory (as the
@@ -27,7 +27,7 @@ passing an absolute directory argument produces absolute paths instead.
 `Path::extension`: a name that starts with a dot and has no other dot (like
 `.gitignore`) has no extension, so `$EXT` is `""` and `$BASENAME` is the
 whole `".gitignore"`. A name with more than one dot (like `file.test.js`)
-splits on the *last* dot only, so `$EXT` is `"js"` and `$BASENAME` is
+splits on the _last_ dot only, so `$EXT` is `"js"` and `$BASENAME` is
 `"file.test"`.
 
 ### Context Variables
@@ -123,7 +123,7 @@ DSL expression.
 ```yaml
 # Everything from # to end-of-line is ignored, including "&& false" below —
 # this rule evaluates to plain `true`
-rule: 'true # this is a comment && false'
+rule: "true # this is a comment && false"
 ```
 
 ### List Literals
@@ -230,7 +230,7 @@ build strings with `${...}` templates, instead:
 
 ```yaml
 # Fails to parse — arithmetic is not supported
-rule: 'count($NAME) + 1 == 2'
+rule: "count($NAME) + 1 == 2"
 ```
 
 ```
@@ -252,9 +252,9 @@ first:
 7. **Unary minus**: `-`
 8. **Primary**: literals, variables, function calls, indexing, `(...)`
 
-Note that `!` binds *looser* than comparison — it wraps the whole
+Note that `!` binds _looser_ than comparison — it wraps the whole
 comparison instead of just its left operand — while unary minus binds
-*tighter* than comparison, since it applies directly to a primary
+_tighter_ than comparison, since it applies directly to a primary
 expression:
 
 ```yaml
@@ -270,7 +270,7 @@ requires boolean" — because `!` wraps the comparison rather than negating
 `$EXT` on its own:
 
 ```yaml
-rule: '!$EXT == "zzz"'   # Equivalent to: !($EXT == "zzz")
+rule: '!$EXT == "zzz"' # Equivalent to: !($EXT == "zzz")
 ```
 
 ## Functions
@@ -369,7 +369,7 @@ at that index, as a one-character string. Negative indexes and indexes
 past the end of the string are both errors, the same as list indexing:
 
 ```yaml
-$BASENAME[0] == "h"                         # First character of the basename
+$BASENAME[0] == "h" # First character of the basename
 ```
 
 #### `in(item, list)`
@@ -630,7 +630,7 @@ config loading rejects it outright:
 
 ```yaml
 custom-matchers:
-  true: 'kebab-case'   # Error: Invalid matcher name 'true': shadowed by the boolean literal
+  true: "kebab-case" # Error: Invalid matcher name 'true': shadowed by the boolean literal
 ```
 
 ## Performance Considerations

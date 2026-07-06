@@ -425,11 +425,9 @@ describe("index.ts", () => {
 
     it("forwards SIGINT to a still-running child instead of exiting", async () => {
       const onSpy = spyOnProcessOn();
-      const processExit = vi
-        .spyOn(process, "exit")
-        .mockImplementation(() => {
-          throw new Error("process.exit called");
-        });
+      const processExit = vi.spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("process.exit called");
+      });
 
       const mockChild = {
         exitCode: null,
@@ -452,11 +450,9 @@ describe("index.ts", () => {
 
     it("forwards SIGTERM to a still-running child instead of exiting", async () => {
       const onSpy = spyOnProcessOn();
-      const processExit = vi
-        .spyOn(process, "exit")
-        .mockImplementation(() => {
-          throw new Error("process.exit called");
-        });
+      const processExit = vi.spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("process.exit called");
+      });
 
       const mockChild = {
         exitCode: null,
