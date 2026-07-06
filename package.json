@@ -24,6 +24,7 @@
     "coverage:check:ts": "wireit",
     "coverage:check:rust": "wireit",
     "sync-toml": "wireit",
+    "sync-optional-deps": "wireit",
     "prepublishOnly": "wireit",
     "format": "wireit",
     "format:ts": "wireit",
@@ -147,7 +148,7 @@
       "command": "tsc --noEmit",
       "files": [
         "src/**/*.ts",
-        "test/**/*.ts",
+        "scripts/**/*.ts",
         "tsconfig.json"
       ]
     },
@@ -169,7 +170,7 @@
       "command": "vitest run",
       "files": [
         "src/**/*.ts",
-        "test/**/*.ts",
+        "scripts/**/*.ts",
         "vitest.config.ts"
       ],
       "dependencies": [
@@ -194,7 +195,7 @@
       "command": "vitest run --coverage",
       "files": [
         "src/**/*.ts",
-        "test/**/*.ts",
+        "scripts/**/*.ts",
         "vitest.config.ts"
       ],
       "output": [
@@ -261,10 +262,20 @@
         "package.json"
       ]
     },
+    "sync-optional-deps": {
+      "command": "tsx scripts/sync-optional-deps.ts",
+      "files": [
+        "scripts/sync-optional-deps.ts",
+        "package.json"
+      ],
+      "dependencies": [
+        "sync-toml"
+      ]
+    },
     "prepublishOnly": {
       "dependencies": [
         "build:ts",
-        "sync-toml"
+        "sync-optional-deps"
       ]
     },
     "format": {

@@ -14,23 +14,25 @@ import https from "https";
 import { createHash } from "crypto";
 
 const MAX_REDIRECTS = 5;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 export function getPlatformTarget(): string {
   const platform = os.platform();
   const arch = os.arch();
 
   if (platform === "win32") {
+    // Windows on ARM has no native build; run the x64 binary under emulation.
     return "x86_64-pc-windows-msvc";
   } else if (platform === "darwin") {
     if (arch === "arm64") {
       return "aarch64-apple-darwin";
-    } else {
+    } else if (arch === "x64") {
       return "x86_64-apple-darwin";
     }
   } else if (platform === "linux") {
     if (arch === "arm64") {
       return "aarch64-unknown-linux-gnu";
-    } else {
+    } else if (arch === "x64") {
       return "x86_64-unknown-linux-gnu";
     }
   }
@@ -113,7 +115,7 @@ export function getBinaryPath(): string {
 
 function httpGet(url: string, redirectsLeft = MAX_REDIRECTS): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    https
+    const request = https
       .get(url, (response) => {
         const status = response.statusCode ?? 0;
 
@@ -141,6 +143,14 @@ function httpGet(url: string, redirectsLeft = MAX_REDIRECTS): Promise<Buffer> {
         response.on("error", reject);
       })
       .on("error", reject);
+
+    request.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      request.destroy(
+        new Error(
+          `Request timed out after ${REQUEST_TIMEOUT_MS}ms fetching ${url}`
+        )
+      );
+    });
   });
 }
 
@@ -202,6 +212,11 @@ export async function ensureBinary(): Promise<string> {
     console.error(`Failed to download binary: ${error}`);
     console.error(`Please download manually from: ${downloadUrl}`);
     process.exit(1);
+    // process.exit(1) never returns in production. This throw exists so
+    // that if process.exit is stubbed out (e.g. in tests, or some other
+    // unusual host environment), ensureBinary still can't fall through and
+    // return `undefined` where a string binaryPath is expected.
+    throw error;
   }
 }
 
@@ -247,16 +262,46 @@ export function handleBinaryExit(
   }
 }
 
+/**
+ * Installs SIGINT/SIGTERM handlers on this (wrapper) process so that Node's
+ * default signal disposition — immediate termination — can't preempt
+ * handleBinaryExit's exit-code forwarding.
+ *
+ * Without this, hitting Ctrl+C sends SIGINT to the whole process group
+ * (wrapper and child alike). If the wrapper has no SIGINT listener, Node
+ * kills it immediately per the default disposition, racing the child's own
+ * shutdown and potentially exiting the wrapper before the child's "exit"
+ * event (and its real exit code) is ever observed.
+ *
+ * Installing a handler suppresses that default disposition. The handler
+ * simply forwards the signal to the child if it's still running; if the
+ * child has already exited, it does nothing, leaving the child's "exit"
+ * event (wired to handleBinaryExit) as the sole thing that decides how and
+ * when the wrapper itself exits.
+ */
+export function installSignalForwarding(child: ChildProcess): void {
+  const forward = (signal: NodeJS.Signals): void => {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill(signal);
+    }
+  };
+
+  process.on("SIGINT", forward);
+  process.on("SIGTERM", forward);
+}
+
 export async function main(): Promise<void> {
   try {
     const binaryPath = await ensureBinary();
 
-    spawnBinary(
+    const child = spawnBinary(
       binaryPath,
       process.argv.slice(2),
       (err) => handleBinaryError(err, binaryPath),
       handleBinaryExit
     );
+
+    installSignalForwarding(child);
   } catch (error) {
     console.error("Failed to start lintp:", error);
     process.exit(1);

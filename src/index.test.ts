@@ -78,6 +78,22 @@ describe("index.ts", () => {
       const { getPlatformTarget } = await import("./index");
       expect(() => getPlatformTarget()).toThrow("Unsupported platform");
     });
+
+    it.each([
+      ["darwin", "ia32"],
+      ["darwin", "arm"],
+      ["linux", "ia32"],
+      ["linux", "arm"],
+    ])(
+      "throws for unsupported %s/%s architectures instead of falling back to x64",
+      async (plat, architecture) => {
+        mockPlatform.mockReturnValue(plat as NodeJS.Platform);
+        mockArch.mockReturnValue(architecture as NodeJS.Architecture);
+
+        const { getPlatformTarget } = await import("./index");
+        expect(() => getPlatformTarget()).toThrow("Unsupported platform");
+      }
+    );
   });
 
   describe("getBinaryName", () => {
@@ -389,6 +405,153 @@ describe("index.ts", () => {
     });
   });
 
+  describe("installSignalForwarding", () => {
+    function spyOnProcessOn() {
+      // Capture the handlers without actually registering them on the real
+      // process object: a real registration would leak SIGINT/SIGTERM
+      // listeners across tests (and risk interacting with the test
+      // runner's own signal handling).
+      return vi.spyOn(process, "on").mockImplementation(() => process);
+    }
+
+    function findHandler(
+      onSpy: ReturnType<typeof spyOnProcessOn>,
+      signal: "SIGINT" | "SIGTERM"
+    ): (signal: NodeJS.Signals) => void {
+      const call = onSpy.mock.calls.find(([event]) => event === signal);
+      expect(call).toBeDefined();
+      return call?.[1] as (signal: NodeJS.Signals) => void;
+    }
+
+    it("forwards SIGINT to a still-running child instead of exiting", async () => {
+      const onSpy = spyOnProcessOn();
+      const processExit = vi
+        .spyOn(process, "exit")
+        .mockImplementation(() => {
+          throw new Error("process.exit called");
+        });
+
+      const mockChild = {
+        exitCode: null,
+        signalCode: null,
+        kill: vi.fn(),
+      } as unknown as ChildProcess;
+
+      const { installSignalForwarding } = await import("./index");
+      installSignalForwarding(mockChild);
+
+      const sigint = findHandler(onSpy, "SIGINT");
+      expect(() => sigint("SIGINT")).not.toThrow();
+
+      expect(mockChild.kill).toHaveBeenCalledWith("SIGINT");
+      expect(processExit).not.toHaveBeenCalled();
+
+      onSpy.mockRestore();
+      processExit.mockRestore();
+    });
+
+    it("forwards SIGTERM to a still-running child instead of exiting", async () => {
+      const onSpy = spyOnProcessOn();
+      const processExit = vi
+        .spyOn(process, "exit")
+        .mockImplementation(() => {
+          throw new Error("process.exit called");
+        });
+
+      const mockChild = {
+        exitCode: null,
+        signalCode: null,
+        kill: vi.fn(),
+      } as unknown as ChildProcess;
+
+      const { installSignalForwarding } = await import("./index");
+      installSignalForwarding(mockChild);
+
+      const sigterm = findHandler(onSpy, "SIGTERM");
+      expect(() => sigterm("SIGTERM")).not.toThrow();
+
+      expect(mockChild.kill).toHaveBeenCalledWith("SIGTERM");
+      expect(processExit).not.toHaveBeenCalled();
+
+      onSpy.mockRestore();
+      processExit.mockRestore();
+    });
+
+    it("does nothing once the child has already exited", async () => {
+      const onSpy = spyOnProcessOn();
+
+      const mockChild = {
+        exitCode: 0,
+        signalCode: null,
+        kill: vi.fn(),
+      } as unknown as ChildProcess;
+
+      const { installSignalForwarding } = await import("./index");
+      installSignalForwarding(mockChild);
+
+      const sigint = findHandler(onSpy, "SIGINT");
+      sigint("SIGINT");
+
+      expect(mockChild.kill).not.toHaveBeenCalled();
+
+      onSpy.mockRestore();
+    });
+  });
+
+  describe("main + signal handling integration", () => {
+    it("does not die on SIGINT before the child exits, and still forwards the child's exit code", async () => {
+      mockPlatform.mockReturnValue("linux");
+      mockArch.mockReturnValue("x64");
+      mockHomedir.mockReturnValue("/home/test");
+      process.argv = ["node", "index.js"];
+
+      mockExistsSync.mockImplementation((p) =>
+        String(p).endsWith("package.json") ? actualFs.existsSync(p) : true
+      );
+
+      const mockChild = {
+        exitCode: null as number | null,
+        signalCode: null as NodeJS.Signals | null,
+        kill: vi.fn(),
+        on: vi.fn(),
+      };
+      mockSpawn.mockReturnValue(mockChild as unknown as ChildProcess);
+
+      const onSpy = vi.spyOn(process, "on").mockImplementation(() => process);
+      const processExit = vi
+        .spyOn(process, "exit")
+        .mockImplementation(() => undefined as never);
+
+      const { main } = await import("./index");
+      await main();
+
+      const sigintHandler = onSpy.mock.calls.find(
+        (call) => call[0] === "SIGINT"
+      )?.[1] as (signal: NodeJS.Signals) => void;
+      expect(sigintHandler).toBeDefined();
+
+      // Ctrl+C arrives while the child is still running: the wrapper must
+      // not exit itself; it should only forward the signal to the child.
+      sigintHandler("SIGINT");
+      expect(mockChild.kill).toHaveBeenCalledWith("SIGINT");
+      expect(processExit).not.toHaveBeenCalled();
+
+      // The child (having received the forwarded signal) exits with its own
+      // code; the wrapper's "exit" listener (handleBinaryExit) must still
+      // forward that code, undisturbed by the earlier SIGINT.
+      const exitCallback = mockChild.on.mock.calls.find(
+        (call) => call[0] === "exit"
+      )?.[1];
+      mockChild.exitCode = 130;
+      exitCallback(130, null);
+
+      expect(processExit).toHaveBeenCalledWith(130);
+
+      onSpy.mockRestore();
+      processExit.mockRestore();
+    });
+  });
+
   describe("module exports", () => {
     it("exposes the public API", async () => {
       const module = await import("./index");
@@ -402,6 +565,7 @@ describe("index.ts", () => {
       expect(module.spawnBinary).toBeDefined();
       expect(module.handleBinaryError).toBeDefined();
       expect(module.handleBinaryExit).toBeDefined();
+      expect(module.installSignalForwarding).toBeDefined();
     });
   });
 });
