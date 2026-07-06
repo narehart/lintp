@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0 (2026-07-06)
+
+## What's Changed
+* feat: generate llms.txt for the docs site by @narehart in https://github.com/narehart/lintp/pull/70
+* fix: pre-launch audit fixes for docs, readme, and docs build by @narehart in https://github.com/narehart/lintp/pull/72
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.7.0...v0.8.0
+
 ## 0.7.0 (2026-07-06)
 
 ## What's Changed
