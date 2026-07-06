@@ -21,7 +21,7 @@ lintp:
     # decision, so it must be added here to pass
     allowed-root-md: 'in($BASENAME, ["README", "CHANGELOG", "CONTRIBUTING"])'
     allowed-root-json: 'in($NAME, ["package.json", "package-lock.json", "tsconfig.json", "tsconfig.build.json", "release-please-config.json", ".release-please-manifest.json"])'
-    allowed-root-plain: 'in($NAME, ["LICENSE", ".gitignore", ".prettierignore", ".prettierrc", ".editorconfig", ".tool-versions"])'
+    allowed-root-plain: 'in($NAME, ["LICENSE", ".gitignore", ".gitattributes", ".prettierignore", ".prettierrc", ".editorconfig", ".tool-versions"])'
     allowed-root-dir: 'in($BASENAME, ["src", "tests", "scripts", "docs", "benches", "bin"])'
 
   config:

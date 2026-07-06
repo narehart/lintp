@@ -560,6 +560,16 @@ describe("index.ts", () => {
       mockHomedir.mockReturnValue("/home/test");
       process.argv = ["node", "index.js"];
 
+      // This test exercises the generic error/exit wiring, not the
+      // musl/glibc mismatch message, so `process.platform` (checked
+      // directly by handleBinaryError, separately from the `os.platform()`
+      // mocked above for asset-target resolution) must be pinned away from
+      // "linux" — otherwise this assertion depends on the host OS actually
+      // running the test suite instead of being deterministic.
+      const processPlatform = vi
+        .spyOn(process, "platform", "get")
+        .mockReturnValue("darwin");
+
       mockExistsSync.mockImplementation((p) =>
         String(p).endsWith("package.json") ? actualFs.existsSync(p) : true
       );
@@ -601,6 +611,7 @@ describe("index.ts", () => {
 
       consoleError.mockRestore();
       processExit.mockRestore();
+      processPlatform.mockRestore();
     });
   });
 
