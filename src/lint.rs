@@ -12,6 +12,7 @@ use crate::util::forward_slashes;
 
 /// Outcome of checking a single file or directory against its applicable
 /// rule.
+#[must_use]
 #[derive(Debug)]
 pub enum LintResult {
     /// The path matched its applicable rule (or no rule applied to it).
