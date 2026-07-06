@@ -5,7 +5,16 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ["dist/**", "node_modules/**", "bin/**", "*.d.ts", ".wireit/**"],
+    ignores: [
+      "dist/**",
+      "node_modules/**",
+      "bin/**",
+      "*.d.ts",
+      ".wireit/**",
+      "target/**",
+      "coverage/**",
+      "_site/**",
+    ],
   },
   {
     files: ["**/*.ts", "**/*.mts"],
