@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.1 (2026-07-06)
+
+## What's Changed
+* chore: pre-launch audit fixes by @narehart in https://github.com/narehart/lintp/pull/73
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.8.0...v0.8.1
+
 ## 0.8.0 (2026-07-06)
 
 ## What's Changed
