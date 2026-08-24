@@ -1,3 +1,6 @@
+//! End-to-end tests that run the compiled `lintp` binary against a
+//! temporary project and assert on its output and exit code.
+
 use anyhow::Result;
 use std::path::PathBuf;
 use std::process::Command;
@@ -122,8 +125,7 @@ fn test_valid_project() -> Result<()> {
     // Check that the output contains success message
     assert!(
         stdout.contains("All files and directories match the configured rules"),
-        "Expected success message, got: {}",
-        stdout
+        "Expected success message, got: {stdout}"
     );
 
     Ok(())
@@ -214,8 +216,7 @@ fn test_with_custom_config_path() -> Result<()> {
     // Check that the output contains success message
     assert!(
         stdout.contains("All files and directories match the configured rules"),
-        "Expected success message, got: {}",
-        stdout
+        "Expected success message, got: {stdout}"
     );
 
     Ok(())
@@ -249,8 +250,7 @@ fn test_with_verbose_output() -> Result<()> {
     // Should be checking at least 10 items (including directories and files)
     assert!(
         checking_count >= 10,
-        "Should check at least 10 items, found {}",
-        checking_count
+        "Should check at least 10 items, found {checking_count}"
     );
 
     Ok(())
@@ -280,8 +280,7 @@ fn test_with_missing_config() -> Result<()> {
     // Check that the output contains error message about missing config
     assert!(
         stderr.contains("No config file found"),
-        "Should report missing config file, got: {}",
-        stderr
+        "Should report missing config file, got: {stderr}"
     );
 
     Ok(())

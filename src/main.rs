@@ -1,3 +1,6 @@
+//! The `lintp` command-line entry point: resolves the config file, runs the
+//! lint, prints the results, and sets the exit code.
+
 use anyhow::{bail, Result};
 use clap::Parser;
 use std::path::PathBuf;
@@ -28,17 +31,16 @@ struct Cli {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let config_path = match cli.config {
-        Some(path) => path,
-        None => {
-            let default_path = PathBuf::from("lintp.yml");
-            if !default_path.exists() {
-                bail!(
-                    "No config file found. Use --config to specify a config file path or create lintp.yml in the current directory."
-                );
-            }
-            default_path
+    let config_path = if let Some(path) = cli.config {
+        path
+    } else {
+        let default_path = PathBuf::from("lintp.yml");
+        if !default_path.exists() {
+            bail!(
+                "No config file found. Use --config to specify a config file path or create lintp.yml in the current directory."
+            );
         }
+        default_path
     };
 
     let config = config::load_config(&config_path)?;

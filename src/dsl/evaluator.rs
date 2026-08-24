@@ -7,21 +7,30 @@ use std::path::{Path, PathBuf};
 use crate::dsl::ast::{BinaryOperator, Expression, StringTemplatePart, UnaryOperator};
 use crate::dsl::functions;
 
+/// A value produced while evaluating an expression.
+///
+/// The DSL is dynamically typed: functions check the variants they were
+/// handed and report a type error rather than coercing.
 #[derive(Debug, Clone)]
 pub enum Value {
+    /// Text — every built-in variable evaluates to one of these.
     String(String),
+    /// A whole number, from a literal or from `count()`.
     Integer(i64),
+    /// The result of a comparison, a matcher, or a whole rule.
     Boolean(bool),
+    /// A compiled `/pattern/`, only ever an argument to `matches()`.
     Regex(Regex),
+    /// The result of `siblings()`, `children()`, `find()`, `map()`, `filter()`.
     List(Vec<Value>),
 }
 
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::String(s) => write!(f, "{}", s),
-            Value::Integer(i) => write!(f, "{}", i),
-            Value::Boolean(b) => write!(f, "{}", b),
+            Value::String(s) => write!(f, "{s}"),
+            Value::Integer(i) => write!(f, "{i}"),
+            Value::Boolean(b) => write!(f, "{b}"),
             Value::Regex(r) => write!(f, "/{}/", r.as_str()),
             Value::List(items) => {
                 write!(f, "[")?;
@@ -29,7 +38,7 @@ impl std::fmt::Display for Value {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", item)?;
+                    write!(f, "{item}")?;
                 }
                 write!(f, "]")
             }
@@ -60,12 +69,26 @@ pub type FsCache = RefCell<HashMap<String, Vec<PathBuf>>>;
 /// against that rule.
 pub type RegexCache = RefCell<HashMap<String, Regex>>;
 
+/// Everything an expression can see while it is being evaluated against one
+/// file or directory.
 pub struct EvaluationContext<'a> {
+    /// The built-in variables (`NAME`, `EXT`, `PATH`, ...) keyed without the
+    /// leading `$`.
     pub variables: HashMap<String, Value>,
+    /// The path currently being checked; the anchor for `siblings()`,
+    /// `children()` and `exists()`.
     pub path: &'a Path,
+    /// Named expressions from `custom-matchers`, resolved when an
+    /// [`Expression::Reference`] is evaluated.
     pub custom_matchers: &'a HashMap<String, Expression>,
-    pub item_context: Option<Value>, // For map/filter operations
+    /// The value bound to `$item` inside `any()`, `all()`, `map()` and
+    /// `filter()`; `None` outside a lambda.
+    pub item_context: Option<Value>,
+    /// Directory listings shared across the run, so a `siblings()` rule reads
+    /// each directory once rather than once per file in it.
     pub fs_cache: Option<&'a FsCache>,
+    /// Compiled regexes shared across the run, so a pattern is compiled once
+    /// rather than once per file it is tested against.
     pub regex_cache: Option<&'a RegexCache>,
 }
 
@@ -81,7 +104,7 @@ pub fn evaluate(
     expr: &Expression,
     context: &EvaluationContext,
 ) -> std::result::Result<Value, crate::Error> {
-    evaluate_impl(expr, context).map_err(|e| crate::Error::Dsl(format!("{:#}", e)))
+    evaluate_impl(expr, context).map_err(|e| crate::Error::Dsl(format!("{e:#}")))
 }
 
 /// Implementation behind [`evaluate`]; kept separate (and anyhow-based)
@@ -118,8 +141,8 @@ pub(crate) fn evaluate_impl(expr: &Expression, context: &EvaluationContext) -> R
                 }
             }
 
-            let regex = Regex::new(pattern)
-                .with_context(|| format!("Invalid regex pattern: {}", pattern))?;
+            let regex =
+                Regex::new(pattern).with_context(|| format!("Invalid regex pattern: {pattern}"))?;
 
             if let Some(cache) = context.regex_cache {
                 cache.borrow_mut().insert(pattern.clone(), regex.clone());
@@ -271,26 +294,27 @@ pub(crate) fn evaluate_impl(expr: &Expression, context: &EvaluationContext) -> R
 
             match (expr_value, index_value) {
                 (Value::List(items), Value::Integer(i)) => {
-                    if i < 0 || (i as usize) >= items.len() {
-                        Err(anyhow::anyhow!(
+                    // try_from rejects negatives outright, so a negative
+                    // index can never wrap into a huge usize and index past
+                    // the end of the list
+                    match usize::try_from(i).ok().and_then(|i| items.get(i)) {
+                        Some(item) => Ok(item.clone()),
+                        None => Err(anyhow::anyhow!(
                             "Index out of bounds: {} for list of length {}",
                             i,
                             items.len()
-                        ))
-                    } else {
-                        Ok(items[i as usize].clone())
+                        )),
                     }
                 }
                 (Value::String(s), Value::Integer(i)) => {
                     let chars: Vec<char> = s.chars().collect();
-                    if i < 0 || (i as usize) >= chars.len() {
-                        Err(anyhow::anyhow!(
+                    match usize::try_from(i).ok().and_then(|i| chars.get(i)) {
+                        Some(c) => Ok(Value::String(c.to_string())),
+                        None => Err(anyhow::anyhow!(
                             "Index out of bounds: {} for string of length {}",
                             i,
                             chars.len()
-                        ))
-                    } else {
-                        Ok(Value::String(chars[i as usize].to_string()))
+                        )),
                     }
                 }
                 _ => Err(anyhow::anyhow!(

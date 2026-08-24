@@ -1,14 +1,23 @@
 use anyhow::Result;
 use pest::Parser;
-use pest_derive::Parser;
 
 use crate::dsl::ast::{BinaryOperator, Expression, StringTemplatePart, UnaryOperator};
 
-/// Parser for the lintp DSL
-/// This uses Pest to parse expressions according to the grammar defined in grammar.pest
-#[derive(Parser)]
-#[grammar = "dsl/grammar.pest"]
-struct DslParser;
+/// Wraps the Pest-generated parser, whose `Rule` enum is public but carries
+/// no docs of its own — its variants are generated from grammar.pest, so the
+/// crate-wide `missing_docs` deny is lifted for generated code only.
+#[allow(missing_docs)]
+mod grammar {
+    use pest_derive::Parser;
+
+    /// Parser for the lintp DSL, generated from `dsl/grammar.pest`. The
+    /// public entry point is [`super::parse_expression`].
+    #[derive(Parser)]
+    #[grammar = "dsl/grammar.pest"]
+    pub struct DslParser;
+}
+
+use grammar::{DslParser, Rule};
 
 /// Parses a rule, custom-matcher, or template-embedded expression string,
 /// enforcing that the whole input is consumed (trailing garbage is an error).
@@ -18,7 +27,7 @@ struct DslParser;
 /// Returns [`crate::Error::Dsl`] if the input is not a syntactically valid
 /// expression.
 pub fn parse_expression(input: &str) -> std::result::Result<Expression, crate::Error> {
-    parse_expression_impl(input).map_err(|e| crate::Error::Dsl(format!("{:#}", e)))
+    parse_expression_impl(input).map_err(|e| crate::Error::Dsl(format!("{e:#}")))
 }
 
 /// Implementation behind [`parse_expression`]; kept separate (and
@@ -62,8 +71,8 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
             parse_expression_pair(inner)
         }
 
-        Rule::or_expr => parse_binary_expr(pair, Rule::or_op, BinaryOperator::Or),
-        Rule::and_expr => parse_binary_expr(pair, Rule::and_op, BinaryOperator::And),
+        Rule::or_expr => parse_binary_expr(pair, Rule::or_op, &BinaryOperator::Or),
+        Rule::and_expr => parse_binary_expr(pair, Rule::and_op, &BinaryOperator::And),
 
         Rule::not_expr => {
             let mut inner = pair.into_inner();
@@ -140,11 +149,6 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
             } else {
                 parse_expression_pair(first)
             }
-        }
-
-        Rule::primary => {
-            let inner = pair.into_inner().next().unwrap();
-            parse_expression_pair(inner)
         }
 
         Rule::variable => {
@@ -348,7 +352,7 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
             let template_str = pair.as_str();
             if template_str.len() < 4
                 || !template_str.starts_with("${")
-                || !template_str.ends_with("}")
+                || !template_str.ends_with('}')
             {
                 return Err(anyhow::anyhow!("Invalid string template: {}", template_str));
             }
@@ -415,7 +419,9 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
             Ok(expr)
         }
 
-        Rule::base_expr => {
+        // Both are pure wrapper rules: unwrap to the single inner pair and
+        // carry on. Kept as one arm so the two can't drift apart.
+        Rule::primary | Rule::base_expr => {
             let inner = pair.into_inner().next().unwrap();
             parse_expression_pair(inner)
         }
@@ -428,7 +434,7 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
 fn parse_binary_expr(
     pair: pest::iterators::Pair<Rule>,
     op_rule: Rule,
-    op_kind: BinaryOperator,
+    op_kind: &BinaryOperator,
 ) -> Result<Expression> {
     let mut inner = pair.into_inner();
     let mut left = parse_expression_pair(inner.next().unwrap())?;
@@ -582,7 +588,7 @@ mod tests {
                 StringTemplatePart::Literal(s) if s == "-日本語"
             ));
         } else {
-            panic!("Expected StringTemplate, got {:?}", expr);
+            panic!("Expected StringTemplate, got {expr:?}");
         }
 
         Ok(())
@@ -598,8 +604,7 @@ mod tests {
         let result = parse_expression(&input);
         assert!(
             result.is_err(),
-            "expected unterminated ${{ with multi-byte content to error, got {:?}",
-            result
+            "expected unterminated ${{ with multi-byte content to error, got {result:?}"
         );
     }
 }

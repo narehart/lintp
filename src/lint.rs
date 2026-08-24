@@ -1,6 +1,7 @@
 use anyhow::{Context as ErrorContext, Result};
 use glob::Pattern;
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -21,8 +22,13 @@ pub enum LintResult {
     /// (e.g. an I/O error reading the path), with `rule` identifying which
     /// rule key was applied (or `"io"` for a filesystem access failure).
     Failure {
+        /// The path that failed.
         path: PathBuf,
+        /// The rule key that was applied (`.ts`, `.dir`, `.*`), or `"io"`
+        /// when the path could not be read at all.
         rule: String,
+        /// The configured message, or the rule expression, plus the
+        /// `(failed: ...)` breakdown when the rule is a chain of `&&`.
         message: String,
     },
 }
@@ -132,7 +138,7 @@ pub fn run_lint(
                 results.push(LintResult::Failure {
                     path,
                     rule: "io".to_string(),
-                    message: format!("Could not read: {}", e),
+                    message: format!("Could not read: {e}"),
                 });
                 continue;
             }
@@ -185,7 +191,7 @@ pub fn run_lint(
             &config.parsed_matchers,
             &mut caches,
         )
-        .map_err(|e| crate::Error::Dsl(format!("{:#}", e)))?;
+        .map_err(|e| crate::Error::Dsl(format!("{e:#}")))?;
 
         results.push(result);
     }
@@ -315,7 +321,7 @@ fn apply_rules(
         // Parse the rule once per distinct rule string
         if !caches.rules.contains_key(rule_str) {
             let expr = parse_expression(rule_str)
-                .with_context(|| format!("Failed to parse rule: {}", rule_str))?;
+                .with_context(|| format!("Failed to parse rule: {rule_str}"))?;
             caches.rules.insert(rule_str.clone(), expr);
         }
         let rule_expr = &caches.rules[rule_str];
@@ -328,10 +334,13 @@ fn apply_rules(
                 // failing-conjunct breakdown is appended either way
                 let mut message = match &entry.message {
                     Some(custom) => custom.clone(),
-                    None => format!("Does not match rule: {}", rule_str),
+                    None => format!("Does not match rule: {rule_str}"),
                 };
                 if let Some(failed) = explain_failure(rule_expr, &context) {
-                    message.push_str(&format!(" (failed: {})", failed));
+                    // write! rather than push_str(&format!(..)): one
+                    // allocation instead of two, and newer clippy flags the
+                    // latter under pedantic
+                    let _ = write!(message, " (failed: {failed})");
                 }
                 Ok(LintResult::Failure {
                     path: path.to_path_buf(),
@@ -342,7 +351,7 @@ fn apply_rules(
             _ => Ok(LintResult::Failure {
                 path: path.to_path_buf(),
                 rule: rule_key,
-                message: format!("Rule did not evaluate to a boolean: {}", rule_str),
+                message: format!("Rule did not evaluate to a boolean: {rule_str}"),
             }),
         }
     } else {

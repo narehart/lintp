@@ -30,11 +30,14 @@
 //!
 //! See <https://narehart.github.io/lintp/> for the full DSL reference.
 
-// Export modules so they can be imported by tests
+/// Loading and validating `lintp.yml`.
 pub mod config;
+/// The rule expression language.
 pub mod dsl;
 mod error;
+/// Walking a directory and checking each path against its rule.
 pub mod lint;
+/// Small path helpers shared across the crate.
 pub mod util;
 
 pub use error::Error;

@@ -1,3 +1,6 @@
+//! Tests for the harder corners of the DSL: nested lambdas, string
+//! templates, chained comparisons and the interactions between them.
+
 /// Comprehensive tests for advanced DSL features in lintp
 ///
 /// This module tests the sophisticated file system query and collection processing
@@ -108,7 +111,7 @@ fn test_exists_function_basic() -> Result<()> {
 }
 
 /// A negative min/max must be rejected with an error, not silently wrap
-/// around to usize::MAX and always report a match.
+/// around to `usize::MAX` and always report a match.
 #[test]
 fn test_exists_negative_min_max_errors() -> Result<()> {
     let project = create_advanced_test_project()?;
@@ -121,16 +124,14 @@ fn test_exists_negative_min_max_errors() -> Result<()> {
         .expect_err("negative min must be rejected");
     assert!(
         err.to_string().contains("non-negative"),
-        "Expected a non-negative error message, got: {}",
-        err
+        "Expected a non-negative error message, got: {err}"
     );
 
     let err = eval_in_context("exists('*.tmp', 0, -1)", &context)
         .expect_err("negative max must be rejected");
     assert!(
         err.to_string().contains("non-negative"),
-        "Expected a non-negative error message, got: {}",
-        err
+        "Expected a non-negative error message, got: {err}"
     );
 
     Ok(())
@@ -151,8 +152,8 @@ fn test_siblings_function() -> Result<()> {
     assert!(js_files.contains(&"Button.spec.js".to_string()));
 
     // Get all JSX files in same directory
-    let jsx_files = eval_list("siblings('*.jsx')", &context)?;
-    assert!(jsx_files.contains(&"Card.jsx".to_string()));
+    let jsx_siblings = eval_list("siblings('*.jsx')", &context)?;
+    assert!(jsx_siblings.contains(&"Card.jsx".to_string()));
 
     Ok(())
 }
@@ -346,7 +347,7 @@ fn test_item_context_variable() -> Result<()> {
 }
 
 #[test]
-fn test_item_context_error_handling() -> Result<()> {
+fn test_item_context_error_handling() {
     let custom_matchers = HashMap::new();
     let test_path = Path::new("/tmp/test.js");
     let context = create_test_evaluation_context(test_path, &custom_matchers);
@@ -354,8 +355,6 @@ fn test_item_context_error_handling() -> Result<()> {
     // Test $item outside collection context should fail
     let result = eval_in_context("$item", &context);
     assert!(result.is_err());
-
-    Ok(())
 }
 
 // =============================================================================
@@ -392,7 +391,7 @@ fn test_performance_with_large_collections() -> Result<()> {
     let context = create_test_evaluation_context(test_path, &custom_matchers);
 
     // Create a large list for performance testing
-    let large_list: Vec<String> = (0..1000).map(|i| format!("file{}.js", i)).collect();
+    let large_list: Vec<String> = (0..1000).map(|i| format!("file{i}.js")).collect();
     let large_list_value = Value::List(
         large_list
             .iter()

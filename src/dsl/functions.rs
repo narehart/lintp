@@ -21,8 +21,7 @@ pub fn call_lambda_function(
     lambda: &Expression,
     context: &EvaluationContext,
 ) -> std::result::Result<Value, crate::Error> {
-    call_lambda_function_impl(name, collection, lambda, context)
-        .map_err(|e| crate::Error::Dsl(format!("{:#}", e)))
+    into_dsl_error(call_lambda_function_impl(name, collection, lambda, context))
 }
 
 /// Implementation behind [`call_lambda_function`]; kept separate (and
@@ -35,51 +34,44 @@ pub(crate) fn call_lambda_function_impl(
     lambda: &Expression,
     context: &EvaluationContext,
 ) -> Result<Value> {
-    let list = match collection {
-        Value::List(items) => items,
-        _ => {
-            return Err(anyhow::anyhow!("{}() first argument must be a list", name));
-        }
+    let Value::List(list) = collection else {
+        return Err(anyhow::anyhow!("{}() first argument must be a list", name));
     };
 
     // Legacy form: the lambda written as a quoted string ('endsWith($item, ..)')
     // is parsed as an expression rather than treated as a literal
     let parsed;
     let lambda = if let Expression::StringLiteral(s) = lambda {
-        parsed = parse_expression_impl(s).context(format!("Failed to parse expression: {}", s))?;
+        parsed = parse_expression_impl(s).context(format!("Failed to parse expression: {s}"))?;
         &parsed
     } else {
         lambda
     };
 
     match name {
-        "any" => {
+        // Both stop at the first item that settles the answer, so a lambda
+        // that would error on a later item never runs. A non-boolean result
+        // decides nothing and the search continues.
+        "any" | "all" => {
+            let decisive = name == "any";
             for item in list {
-                if let Value::Boolean(true) = eval_with_item(lambda, item, context)? {
-                    return Ok(Value::Boolean(true));
+                if matches!(eval_with_item(lambda, item, context)?, Value::Boolean(b) if b == decisive)
+                {
+                    return Ok(Value::Boolean(decisive));
                 }
             }
-            Ok(Value::Boolean(false))
+            Ok(Value::Boolean(!decisive))
         }
-        "all" => {
-            for item in list {
-                if let Value::Boolean(false) = eval_with_item(lambda, item, context)? {
-                    return Ok(Value::Boolean(false));
-                }
-            }
-            Ok(Value::Boolean(true))
-        }
-        "map" => {
+        // map keeps what the lambda returned; filter keeps the item the
+        // lambda approved of.
+        "map" | "filter" => {
+            let keep_result = name == "map";
             let mut result = Vec::new();
             for item in list {
-                result.push(eval_with_item(lambda, item, context)?);
-            }
-            Ok(Value::List(result))
-        }
-        "filter" => {
-            let mut result = Vec::new();
-            for item in list {
-                if let Value::Boolean(true) = eval_with_item(lambda, item, context)? {
+                let value = eval_with_item(lambda, item, context)?;
+                if keep_result {
+                    result.push(value);
+                } else if matches!(value, Value::Boolean(true)) {
                     result.push(item.clone());
                 }
             }
@@ -125,13 +117,76 @@ fn glob_paths(pattern: &str, context: &EvaluationContext) -> Result<Vec<PathBuf>
     Ok(paths)
 }
 
-fn glob_names(pattern: &str, context: &EvaluationContext) -> Result<Vec<Value>> {
-    Ok(glob_paths(pattern, context)?
-        .iter()
-        .filter_map(|path| path.file_name())
-        .filter_map(|name| name.to_str())
-        .map(|name| Value::String(name.to_string()))
-        .collect())
+/// Flatten an internal anyhow error into the crate's public error type, which
+/// is all the two public entry points do beyond delegating.
+fn into_dsl_error(result: Result<Value>) -> std::result::Result<Value, crate::Error> {
+    result.map_err(|e| crate::Error::Dsl(format!("{e:#}")))
+}
+
+/// Every built-in checks its own arity first, with the same message shape.
+fn expect_args(name: &str, args: &[Value], count: usize) -> Result<()> {
+    if args.len() == count {
+        return Ok(());
+    }
+
+    Err(anyhow::anyhow!(
+        "{name}() requires {count} argument{}",
+        if count == 1 { "" } else { "s" }
+    ))
+}
+
+/// Read a string argument, or fail with the caller's own wording — the
+/// messages name the specific argument ("`find()` first argument must be a
+/// directory path"), so they can't be generated from the function name.
+fn string_arg<'a>(args: &'a [Value], index: usize, message: &str) -> Result<&'a str> {
+    match &args[index] {
+        Value::String(s) => Ok(s),
+        _ => Err(anyhow::anyhow!("{}", message)),
+    }
+}
+
+/// Glob `pattern` under `base` and return the matching file names.
+fn glob_in(base: &Path, pattern: &str, context: &EvaluationContext) -> Result<Value> {
+    let glob_pattern = forward_slashes(&format!("{}/{}", base.display(), pattern));
+
+    Ok(Value::List(
+        glob_paths(&glob_pattern, context)?
+            .iter()
+            .filter_map(|path| path.file_name())
+            .filter_map(|name| name.to_str())
+            .map(|name| Value::String(name.to_string()))
+            .collect(),
+    ))
+}
+
+/// Every two-argument built-in has the same skeleton — check the arity, match
+/// the argument types, apply the operation — and differs only in the middle
+/// step. `apply` returns `None` when the arguments are the wrong types (the
+/// caller's `type_error` is reported), or `Some(Err(..))` when the operation
+/// itself fails and has something more specific to say.
+fn binary_function(
+    name: &str,
+    args: &[Value],
+    type_error: &str,
+    apply: impl Fn(&Value, &Value) -> Option<Result<Value>>,
+) -> Result<Value> {
+    expect_args(name, args, 2)?;
+
+    apply(&args[0], &args[1]).unwrap_or_else(|| Err(anyhow::anyhow!("{}", type_error)))
+}
+
+/// The subset of [`binary_function`] whose operation is a `str` predicate that
+/// cannot itself fail.
+fn string_predicate(
+    name: &str,
+    args: &[Value],
+    type_error: &str,
+    predicate: impl Fn(&str, &str) -> bool,
+) -> Result<Value> {
+    binary_function(name, args, type_error, |a, b| match (a, b) {
+        (Value::String(a), Value::String(b)) => Some(Ok(Value::Boolean(predicate(a, b)))),
+        _ => None,
+    })
 }
 
 /// Dispatches a built-in function call (`matches`, `exists`, `count`, ...)
@@ -146,7 +201,7 @@ pub fn call_function(
     args: &[Value],
     context: &EvaluationContext,
 ) -> std::result::Result<Value, crate::Error> {
-    call_function_impl(name, args, context).map_err(|e| crate::Error::Dsl(format!("{:#}", e)))
+    into_dsl_error(call_function_impl(name, args, context))
 }
 
 /// Implementation behind [`call_function`]; kept separate (and
@@ -159,62 +214,80 @@ pub(crate) fn call_function_impl(
     context: &EvaluationContext,
 ) -> Result<Value> {
     match name {
-        "matches" => matches_function(args, context),
-        "in" => in_function(args, context),
+        "matches" => binary_function(
+            name,
+            args,
+            "matches() requires string and regex/string arguments",
+            |value, pattern| match (value, pattern) {
+                (Value::String(s), Value::Regex(re)) => Some(Ok(Value::Boolean(re.is_match(s)))),
+                // A string pattern is treated as a glob
+                (Value::String(s), Value::String(pattern)) => Some(
+                    Pattern::new(pattern)
+                        .map_err(|e| anyhow::anyhow!("Invalid glob pattern: {}", e))
+                        .map(|glob| Value::Boolean(glob.matches(s))),
+                ),
+                _ => None,
+            },
+        ),
+        "in" => binary_function(
+            name,
+            args,
+            "in() requires string and list arguments",
+            |needle, haystack| match (needle, haystack) {
+                (Value::String(s), Value::List(items)) => {
+                    Some(Ok(Value::Boolean(items.iter().any(
+                        |item| matches!(item, Value::String(candidate) if candidate == s),
+                    ))))
+                }
+                _ => None,
+            },
+        ),
+        "without" => binary_function(
+            name,
+            args,
+            "without() requires string arguments",
+            |value, suffix| match (value, suffix) {
+                (Value::String(s), Value::String(suffix)) => Some(Ok(Value::String(
+                    s.strip_suffix(suffix).unwrap_or(s).to_string(),
+                ))),
+                _ => None,
+            },
+        ),
+        "contains" => contains_function(args),
+        "startsWith" => string_predicate(
+            name,
+            args,
+            "startsWith() requires string arguments",
+            |s, prefix| s.starts_with(prefix),
+        ),
+        "endsWith" => string_predicate(
+            name,
+            args,
+            "endsWith() requires string arguments",
+            |s, suffix| s.ends_with(suffix),
+        ),
         "exists" => exists_function(args, context),
-        "siblings" => siblings_function(args, context),
-        "children" => children_function(args, context),
-        "find" => find_function(args, context),
-        "without" => without_function(args, context),
+        "siblings" | "children" | "find" => glob_function(name, args, context),
         "any" | "all" | "map" | "filter" => string_lambda_function(name, args, context),
-        "contains" => contains_function(args, context),
-        "startsWith" => starts_with_function(args, context),
-        "endsWith" => ends_with_function(args, context),
-        "count" => count_function(args, context),
+        "count" => count_function(args),
         _ => Err(anyhow::anyhow!("Unknown function: {}", name)),
     }
 }
 
-fn matches_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 2 {
-        return Err(anyhow::anyhow!("matches() requires 2 arguments"));
-    }
+/// Read one of `exists()`'s optional min/max bounds, falling back to
+/// `default` when the argument was omitted. `position` names the argument in
+/// the error ("second", "third").
+fn bound_arg(args: &[Value], index: usize, position: &str, default: usize) -> Result<usize> {
+    let Some(value) = args.get(index) else {
+        return Ok(default);
+    };
 
-    match (&args[0], &args[1]) {
-        (Value::String(s), Value::Regex(re)) => Ok(Value::Boolean(re.is_match(s))),
-        (Value::String(s), Value::String(pattern)) => {
-            // Treat string pattern as glob pattern
-            let glob = Pattern::new(pattern)
-                .map_err(|e| anyhow::anyhow!("Invalid glob pattern: {}", e))?;
-            Ok(Value::Boolean(glob.matches(s)))
-        }
+    match value {
+        Value::Integer(i) => usize::try_from(*i)
+            .map_err(|_| anyhow::anyhow!("exists() min/max must be non-negative")),
         _ => Err(anyhow::anyhow!(
-            "matches() requires string and regex/string arguments"
+            "exists() {position} argument must be an integer"
         )),
-    }
-}
-
-fn in_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 2 {
-        return Err(anyhow::anyhow!("in() requires 2 arguments"));
-    }
-
-    match (&args[0], &args[1]) {
-        (Value::String(s), Value::List(items)) => {
-            let mut found = false;
-
-            for item in items {
-                if let Value::String(item_str) = item {
-                    if s == item_str {
-                        found = true;
-                        break;
-                    }
-                }
-            }
-
-            Ok(Value::Boolean(found))
-        }
-        _ => Err(anyhow::anyhow!("in() requires string and list arguments")),
     }
 }
 
@@ -223,46 +296,11 @@ fn exists_function(args: &[Value], context: &EvaluationContext) -> Result<Value>
         return Err(anyhow::anyhow!("exists() requires 1-3 arguments"));
     }
 
-    let pattern = match &args[0] {
-        Value::String(s) => s,
-        _ => {
-            return Err(anyhow::anyhow!(
-                "exists() first argument must be a string pattern"
-            ));
-        }
-    };
+    let pattern = string_arg(args, 0, "exists() first argument must be a string pattern")?;
 
-    let min = if args.len() > 1 {
-        match &args[1] {
-            Value::Integer(i) if *i >= 0 => *i as usize,
-            Value::Integer(_) => {
-                return Err(anyhow::anyhow!("exists() min/max must be non-negative"));
-            }
-            _ => {
-                return Err(anyhow::anyhow!(
-                    "exists() second argument must be an integer"
-                ));
-            }
-        }
-    } else {
-        1 // At least one match required by default
-    };
-
-    let max = if args.len() > 2 {
-        match &args[2] {
-            Value::Integer(i) if *i >= 0 => *i as usize,
-            Value::Integer(_) => {
-                return Err(anyhow::anyhow!("exists() min/max must be non-negative"));
-            }
-            _ => {
-                return Err(anyhow::anyhow!(
-                    "exists() third argument must be an integer"
-                ));
-            }
-        }
-    } else {
-        usize::MAX // No upper limit by default
-    };
+    // At least one match required by default, with no upper limit
+    let min = bound_arg(args, 1, "second", 1)?;
+    let max = bound_arg(args, 2, "third", usize::MAX)?;
 
     // Get parent directory
     let parent = if context.path.is_dir() {
@@ -279,94 +317,41 @@ fn exists_function(args: &[Value], context: &EvaluationContext) -> Result<Value>
     Ok(Value::Boolean(count >= min && count <= max))
 }
 
-fn siblings_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 1 {
-        return Err(anyhow::anyhow!("siblings() requires 1 argument"));
-    }
-
-    let pattern = match &args[0] {
-        Value::String(s) => s,
-        _ => {
-            return Err(anyhow::anyhow!(
-                "siblings() argument must be a string pattern"
-            ));
+/// `siblings()`, `children()` and `find()` all glob a pattern under some
+/// directory and differ only in which directory that is, so they share one
+/// implementation rather than three near-identical ones.
+fn glob_function(name: &str, args: &[Value], context: &EvaluationContext) -> Result<Value> {
+    match name {
+        "siblings" => {
+            expect_args(name, args, 1)?;
+            let pattern = string_arg(args, 0, "siblings() argument must be a string pattern")?;
+            glob_in(
+                context.path.parent().unwrap_or(Path::new(".")),
+                pattern,
+                context,
+            )
         }
-    };
+        "children" => {
+            expect_args(name, args, 1)?;
+            let pattern = string_arg(args, 0, "children() argument must be a string pattern")?;
 
-    // Get parent directory
-    let parent = context.path.parent().unwrap_or(Path::new("."));
-
-    // Find matching siblings
-    let glob_pattern = forward_slashes(&format!("{}/{}", parent.display(), pattern));
-    Ok(Value::List(glob_names(&glob_pattern, context)?))
-}
-
-fn children_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 1 {
-        return Err(anyhow::anyhow!("children() requires 1 argument"));
-    }
-
-    let pattern = match &args[0] {
-        Value::String(s) => s,
-        _ => {
-            return Err(anyhow::anyhow!(
-                "children() argument must be a string pattern"
-            ));
-        }
-    };
-
-    // Check if current path is a directory
-    if !context.path.is_dir() {
-        return Ok(Value::List(Vec::new()));
-    }
-
-    // Find matching children
-    let glob_pattern = forward_slashes(&format!("{}/{}", context.path.display(), pattern));
-    Ok(Value::List(glob_names(&glob_pattern, context)?))
-}
-
-fn find_function(args: &[Value], context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 2 {
-        return Err(anyhow::anyhow!("find() requires 2 arguments"));
-    }
-
-    let dir = match &args[0] {
-        Value::String(s) => PathBuf::from(s),
-        _ => {
-            return Err(anyhow::anyhow!(
-                "find() first argument must be a directory path"
-            ));
-        }
-    };
-
-    let pattern = match &args[1] {
-        Value::String(s) => s,
-        _ => {
-            return Err(anyhow::anyhow!(
-                "find() second argument must be a string pattern"
-            ));
-        }
-    };
-
-    // Find matching files
-    let glob_pattern = forward_slashes(&format!("{}/{}", dir.display(), pattern));
-    Ok(Value::List(glob_names(&glob_pattern, context)?))
-}
-
-fn without_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 2 {
-        return Err(anyhow::anyhow!("without() requires 2 arguments"));
-    }
-
-    match (&args[0], &args[1]) {
-        (Value::String(s), Value::String(suffix)) => {
-            if let Some(stripped) = s.strip_suffix(suffix) {
-                Ok(Value::String(stripped.to_string()))
+            // A file has no children; only directories can match
+            if context.path.is_dir() {
+                glob_in(context.path, pattern, context)
             } else {
-                Ok(Value::String(s.clone()))
+                Ok(Value::List(Vec::new()))
             }
         }
-        _ => Err(anyhow::anyhow!("without() requires string arguments")),
+        _ => {
+            expect_args(name, args, 2)?;
+            let dir = PathBuf::from(string_arg(
+                args,
+                0,
+                "find() first argument must be a directory path",
+            )?);
+            let pattern = string_arg(args, 1, "find() second argument must be a string pattern")?;
+            glob_in(&dir, pattern, context)
+        }
     }
 }
 
@@ -383,7 +368,7 @@ fn string_lambda_function(
 
     let expr = match &args[1] {
         Value::String(s) => {
-            parse_expression_impl(s).context(format!("Failed to parse expression: {}", s))?
+            parse_expression_impl(s).context(format!("Failed to parse expression: {s}"))?
         }
         _ => {
             return Err(anyhow::anyhow!(
@@ -396,58 +381,38 @@ fn string_lambda_function(
     call_lambda_function_impl(name, &args[0], &expr, context)
 }
 
-fn contains_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 2 {
-        return Err(anyhow::anyhow!("contains() requires 2 arguments"));
-    }
-
-    match (&args[0], &args[1]) {
-        (Value::String(haystack), Value::String(needle)) => {
-            Ok(Value::Boolean(haystack.contains(needle)))
-        }
-        (Value::List(_), _) => Err(anyhow::anyhow!(
+/// `contains()` is [`string_predicate`] plus one extra steer: reaching for it
+/// on a list is the natural mistake, and it deserves a better error than the
+/// generic type message.
+fn contains_function(args: &[Value]) -> Result<Value> {
+    if let Some(Value::List(_)) = args.first() {
+        return Err(anyhow::anyhow!(
             "contains() checks substrings; for list membership use in(item, list)"
-        )),
-        _ => Err(anyhow::anyhow!(
-            "contains() requires string haystack and substring arguments"
-        )),
+        ));
     }
+
+    string_predicate(
+        "contains",
+        args,
+        "contains() requires string haystack and substring arguments",
+        |haystack, needle| haystack.contains(needle),
+    )
 }
 
-fn starts_with_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 2 {
-        return Err(anyhow::anyhow!("startsWith() requires 2 arguments"));
-    }
+fn count_function(args: &[Value]) -> Result<Value> {
+    expect_args("count", args, 1)?;
 
-    match (&args[0], &args[1]) {
-        (Value::String(s), Value::String(prefix)) => Ok(Value::Boolean(s.starts_with(prefix))),
-        _ => Err(anyhow::anyhow!("startsWith() requires string arguments")),
-    }
-}
-
-fn ends_with_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 2 {
-        return Err(anyhow::anyhow!("endsWith() requires 2 arguments"));
-    }
-
-    match (&args[0], &args[1]) {
-        (Value::String(s), Value::String(suffix)) => Ok(Value::Boolean(s.ends_with(suffix))),
-        _ => Err(anyhow::anyhow!("endsWith() requires string arguments")),
-    }
-}
-
-fn count_function(args: &[Value], _context: &EvaluationContext) -> Result<Value> {
-    if args.len() != 1 {
-        return Err(anyhow::anyhow!("count() requires 1 argument"));
-    }
-
-    match &args[0] {
-        Value::List(items) => Ok(Value::Integer(items.len() as i64)),
+    let count = match &args[0] {
+        Value::List(items) => items.len(),
         // Character count, not byte count: names like "café.js" should
         // measure the same regardless of encoding width
-        Value::String(s) => Ok(Value::Integer(s.chars().count() as i64)),
-        _ => Err(anyhow::anyhow!(
-            "count() requires a list or string argument"
-        )),
-    }
+        Value::String(s) => s.chars().count(),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "count() requires a list or string argument"
+            ));
+        }
+    };
+
+    Ok(Value::Integer(i64::try_from(count).unwrap_or(i64::MAX)))
 }

@@ -1,3 +1,6 @@
+//! Broad coverage of the DSL surface: every operator, every built-in
+//! function, and their error cases.
+
 /// Comprehensive DSL feature tests
 ///
 /// This module tests all DSL features individually and in combination to ensure
@@ -23,7 +26,7 @@ fn create_test_context<'a>(
     // Set up all standard variables
     let name = path
         .file_name()
-        .map_or("".to_string(), |n| n.to_string_lossy().to_string());
+        .map_or(String::new(), |n| n.to_string_lossy().to_string());
     variables.insert("NAME".to_string(), Value::String(name));
     variables.insert(
         "PATH".to_string(),
@@ -36,7 +39,7 @@ fn create_test_context<'a>(
             Value::String(ext.to_string_lossy().to_string()),
         );
     } else {
-        variables.insert("EXT".to_string(), Value::String("".to_string()));
+        variables.insert("EXT".to_string(), Value::String(String::new()));
     }
 
     if let Some(stem) = path.file_stem() {
@@ -45,7 +48,7 @@ fn create_test_context<'a>(
             Value::String(stem.to_string_lossy().to_string()),
         );
     } else {
-        variables.insert("BASENAME".to_string(), Value::String("".to_string()));
+        variables.insert("BASENAME".to_string(), Value::String(String::new()));
     }
 
     if let Some(parent) = path.parent() {
@@ -146,7 +149,7 @@ fn test_variable_ext() -> Result<()> {
     );
     assert_eq!(
         eval_expr("$EXT", "/noextension")?,
-        Value::String("".to_string())
+        Value::String(String::new())
     );
 
     Ok(())
@@ -186,10 +189,7 @@ fn test_string_literals() -> Result<()> {
         eval_expr("'single quotes'", "/test.js")?,
         Value::String("single quotes".to_string())
     );
-    assert_eq!(
-        eval_expr("\"\"", "/test.js")?,
-        Value::String("".to_string())
-    );
+    assert_eq!(eval_expr("\"\"", "/test.js")?, Value::String(String::new()));
 
     // Test escape sequences
     assert_eq!(
@@ -264,7 +264,7 @@ fn test_list_literals() -> Result<()> {
 // =============================================================================
 
 #[test]
-fn test_logical_operators() -> Result<()> {
+fn test_logical_operators() {
     // Test AND operator
     assert!(is_true("true && true", "/test.js"));
     assert!(is_false("true && false", "/test.js"));
@@ -280,12 +280,10 @@ fn test_logical_operators() -> Result<()> {
     // Test NOT operator
     assert!(is_true("!false", "/test.js"));
     assert!(is_false("!true", "/test.js"));
-
-    Ok(())
 }
 
 #[test]
-fn test_comparison_operators() -> Result<()> {
+fn test_comparison_operators() {
     // Test equality operators
     assert!(is_true("$EXT == \"js\"", "/test.js"));
     assert!(is_false("$EXT == \"ts\"", "/test.js"));
@@ -297,8 +295,6 @@ fn test_comparison_operators() -> Result<()> {
     assert!(is_false("42 == 43", "/test.js"));
     assert!(is_true("\"hello\" == \"hello\"", "/test.js"));
     assert!(is_false("\"hello\" == \"world\"", "/test.js"));
-
-    Ok(())
 }
 
 #[test]
@@ -315,7 +311,7 @@ fn test_unary_operators() -> Result<()> {
 }
 
 #[test]
-fn test_operator_precedence() -> Result<()> {
+fn test_operator_precedence() {
     // Test operator precedence: NOT has higher precedence than AND/OR
     assert!(is_true("!false && true", "/test.js")); // (!false) && true = true && true = true
     assert!(is_false("!true && false", "/test.js")); // (!true) && false = false && false = false
@@ -323,8 +319,6 @@ fn test_operator_precedence() -> Result<()> {
     // Test AND has higher precedence than OR
     assert!(is_true("false || true && true", "/test.js")); // false || (true && true) = false || true = true
     assert!(is_false("false || false && true", "/test.js")); // false || (false && true) = false || false = false
-
-    Ok(())
 }
 
 // =============================================================================
@@ -332,7 +326,7 @@ fn test_operator_precedence() -> Result<()> {
 // =============================================================================
 
 #[test]
-fn test_matches_function() -> Result<()> {
+fn test_matches_function() {
     // Test matches function with various patterns
     assert!(is_true("matches($BASENAME, /^test$/)", "/path/test.js"));
     assert!(is_false("matches($BASENAME, /^test$/)", "/path/other.js"));
@@ -356,12 +350,10 @@ fn test_matches_function() -> Result<()> {
         "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)",
         "/path/hello-world.js"
     ));
-
-    Ok(())
 }
 
 #[test]
-fn test_in_function() -> Result<()> {
+fn test_in_function() {
     // Test in function
     assert!(is_true("in($EXT, [\"js\", \"ts\", \"jsx\"])", "/test.js"));
     assert!(is_false("in($EXT, [\"js\", \"ts\", \"jsx\"])", "/test.py"));
@@ -369,8 +361,6 @@ fn test_in_function() -> Result<()> {
     // Test with different types
     assert!(is_true("in(\"hello\", [\"hello\", \"world\"])", "/test.js"));
     assert!(is_false("in(\"foo\", [\"hello\", \"world\"])", "/test.js"));
-
-    Ok(())
 }
 
 // Note: exists, siblings, children functions would require file system setup
@@ -397,8 +387,8 @@ fn test_without_function() -> Result<()> {
 // =============================================================================
 
 #[test]
-fn test_kebab_case_pattern_comprehensive() -> Result<()> {
-    let pattern = format!("matches($BASENAME, /{}/)", KEBAB_CASE_PATTERN);
+fn test_kebab_case_pattern_comprehensive() {
+    let pattern = format!("matches($BASENAME, /{KEBAB_CASE_PATTERN}/)");
 
     // Valid kebab-case
     assert!(is_true(&pattern, "/hello-world.js"));
@@ -415,13 +405,11 @@ fn test_kebab_case_pattern_comprehensive() -> Result<()> {
     assert!(is_false(&pattern, "/hello-.js"));
     assert!(is_false(&pattern, "/hello--world.js"));
     // Note: Our pattern allows numbers at start - this is by design for flexibility
-
-    Ok(())
 }
 
 #[test]
-fn test_pascal_case_pattern_comprehensive() -> Result<()> {
-    let pattern = format!("matches($BASENAME, /{}/)", PASCAL_CASE_PATTERN);
+fn test_pascal_case_pattern_comprehensive() {
+    let pattern = format!("matches($BASENAME, /{PASCAL_CASE_PATTERN}/)");
 
     // Valid PascalCase
     assert!(is_true(&pattern, "/HelloWorld.js"));
@@ -437,13 +425,11 @@ fn test_pascal_case_pattern_comprehensive() -> Result<()> {
     assert!(is_false(&pattern, "/hello_world.js"));
     assert!(is_false(&pattern, "/123Hello.js"));
     // Note: ALLCAPS actually matches our PascalCase pattern - this is acceptable
-
-    Ok(())
 }
 
 #[test]
-fn test_camel_case_pattern_comprehensive() -> Result<()> {
-    let pattern = format!("matches($BASENAME, /{}/)", CAMEL_CASE_PATTERN);
+fn test_camel_case_pattern_comprehensive() {
+    let pattern = format!("matches($BASENAME, /{CAMEL_CASE_PATTERN}/)");
 
     // Valid camelCase
     assert!(is_true(&pattern, "/helloWorld.js"));
@@ -459,13 +445,11 @@ fn test_camel_case_pattern_comprehensive() -> Result<()> {
     assert!(is_false(&pattern, "/hello_world.js"));
     assert!(is_false(&pattern, "/123hello.js"));
     assert!(is_false(&pattern, "/ALLCAPS.js"));
-
-    Ok(())
 }
 
 #[test]
-fn test_snake_case_pattern_comprehensive() -> Result<()> {
-    let pattern = format!("matches($BASENAME, /{}/)", SNAKE_CASE_PATTERN);
+fn test_snake_case_pattern_comprehensive() {
+    let pattern = format!("matches($BASENAME, /{SNAKE_CASE_PATTERN}/)");
 
     // Valid snake_case
     assert!(is_true(&pattern, "/hello_world.js"));
@@ -482,12 +466,10 @@ fn test_snake_case_pattern_comprehensive() -> Result<()> {
     assert!(is_false(&pattern, "/hello_.js"));
     assert!(is_false(&pattern, "/hello__world.js"));
     // Note: Our pattern allows numbers at start - this is by design for flexibility
-
-    Ok(())
 }
 
 #[test]
-fn test_file_extension_patterns() -> Result<()> {
+fn test_file_extension_patterns() {
     // Test JavaScript files
     assert!(is_true("$EXT == \"js\"", "/component.js"));
     assert!(is_false("$EXT == \"js\"", "/component.ts"));
@@ -503,14 +485,12 @@ fn test_file_extension_patterns() -> Result<()> {
     // Test TSX files
     assert!(is_true("$EXT == \"tsx\"", "/component.tsx"));
     assert!(is_false("$EXT == \"tsx\"", "/component.ts"));
-
-    Ok(())
 }
 
 #[test]
-fn test_test_file_patterns() -> Result<()> {
-    let jest_pattern = format!("matches($NAME, /{}/)", JEST_TEST_PATTERN);
-    let spec_pattern = format!("matches($NAME, /{}/)", SPEC_TEST_PATTERN);
+fn test_test_file_patterns() {
+    let jest_pattern = format!("matches($NAME, /{JEST_TEST_PATTERN}/)");
+    let spec_pattern = format!("matches($NAME, /{SPEC_TEST_PATTERN}/)");
 
     // Test Jest pattern
     assert!(is_true(&jest_pattern, "/component.test.js"));
@@ -527,8 +507,6 @@ fn test_test_file_patterns() -> Result<()> {
     assert!(is_true(&spec_pattern, "/router.spec.tsx"));
     assert!(is_false(&spec_pattern, "/component.js"));
     assert!(is_false(&spec_pattern, "/component.test.js"));
-
-    Ok(())
 }
 
 // =============================================================================
@@ -536,7 +514,7 @@ fn test_test_file_patterns() -> Result<()> {
 // =============================================================================
 
 #[test]
-fn test_complex_logical_expressions() -> Result<()> {
+fn test_complex_logical_expressions() {
     // Test complex AND/OR combinations
     assert!(is_true(
         "($EXT == \"js\" || $EXT == \"ts\") && matches($BASENAME, /^[a-z]/)",
@@ -556,8 +534,6 @@ fn test_complex_logical_expressions() -> Result<()> {
         "!($EXT == \"js\" || $EXT == \"ts\")",
         "/component.js"
     ));
-
-    Ok(())
 }
 
 #[test]
@@ -594,7 +570,7 @@ fn test_custom_matcher_combinations() -> Result<()> {
 }
 
 #[test]
-fn test_real_world_scenarios() -> Result<()> {
+fn test_real_world_scenarios() {
     // Test component naming rules
     assert!(is_true(
         "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/) && $EXT == \"jsx\"",
@@ -628,12 +604,10 @@ fn test_real_world_scenarios() -> Result<()> {
       "/component.js"
     )
   );
-
-    Ok(())
 }
 
 #[test]
-fn test_expression_parsing_edge_cases() -> Result<()> {
+fn test_expression_parsing_edge_cases() {
     // Test expressions with parentheses
     assert!(is_true("(true && false) || true", "/test.js"));
     assert!(is_false("true && (false || false)", "/test.js"));
@@ -649,8 +623,6 @@ fn test_expression_parsing_edge_cases() -> Result<()> {
       "/test-file.js"
     )
   );
-
-    Ok(())
 }
 
 #[test]

@@ -17,20 +17,20 @@
 /// Examples: "hello-world", "my-component", "test-123"
 pub const KEBAB_CASE_PATTERN: &str = r"^[a-z0-9]+(?:-[a-z0-9]+)*$";
 
-/// PascalCase pattern: first letter uppercase, camelCase for the rest
-/// Examples: "HelloWorld", "MyComponent", "TestComponent"
+/// `PascalCase` pattern: first letter uppercase, camelCase for the rest
+/// Examples: "`HelloWorld`", "`MyComponent`", "`TestComponent`"
 pub const PASCAL_CASE_PATTERN: &str = r"^[A-Z][a-zA-Z0-9]*$";
 
-/// camelCase pattern: first letter lowercase, PascalCase for the rest
+/// camelCase pattern: first letter lowercase, `PascalCase` for the rest
 /// Examples: "helloWorld", "myComponent", "testFunction"
 pub const CAMEL_CASE_PATTERN: &str = r"^[a-z][a-zA-Z0-9]*$";
 
-/// snake_case pattern: lowercase letters, numbers, && underscores
-/// Examples: "hello_world", "my_component", "test_123"
+/// `snake_case` pattern: lowercase letters, numbers, && underscores
+/// Examples: "`hello_world`", "`my_component`", "`test_123`"
 pub const SNAKE_CASE_PATTERN: &str = r"^[a-z0-9]+(?:_[a-z0-9]+)*$";
 
-/// UPPER_SNAKE_CASE pattern: uppercase letters, numbers, && underscores
-/// Examples: "HELLO_WORLD", "MY_CONSTANT", "TEST_123"
+/// `UPPER_SNAKE_CASE` pattern: uppercase letters, numbers, && underscores
+/// Examples: "`HELLO_WORLD`", "`MY_CONSTANT`", "`TEST_123`"
 pub const UPPER_SNAKE_CASE_PATTERN: &str = r"^[A-Z0-9]+(?:_[A-Z0-9]+)*$";
 
 // =============================================================================
@@ -96,13 +96,13 @@ pub const COMMON_IGNORE_PATTERNS: &[&str] = &[
 /// Kebab-case matcher expression for lintp DSL
 pub const KEBAB_CASE_EXPR: &str = "matches($BASENAME, /^[a-z0-9]+(?:-[a-z0-9]+)*$/)";
 
-/// PascalCase matcher expression for lintp DSL
+/// `PascalCase` matcher expression for lintp DSL
 pub const PASCAL_CASE_EXPR: &str = "matches($BASENAME, /^[A-Z][a-zA-Z0-9]*$/)";
 
 /// camelCase matcher expression for lintp DSL
 pub const CAMEL_CASE_EXPR: &str = "matches($BASENAME, /^[a-z][a-zA-Z0-9]*$/)";
 
-/// snake_case matcher expression for lintp DSL
+/// `snake_case` matcher expression for lintp DSL
 pub const SNAKE_CASE_EXPR: &str = "matches($BASENAME, /^[a-z0-9]+(?:_[a-z0-9]+)*$/)";
 
 /// JavaScript file matcher expression for lintp DSL
@@ -127,7 +127,7 @@ pub const SPEC_FILE_EXPR: &str = "matches($BASENAME, /\\.spec\\.(js|ts|jsx|tsx)$
 // COMMON COMBINED EXPRESSIONS
 // =============================================================================
 
-/// Any case expression (kebab-case || PascalCase)
+/// Any case expression (kebab-case || `PascalCase`)
 pub const ANY_CASE_EXPR: &str = "kebab-case || PascalCase";
 
 /// Script file expression (js || ts)
@@ -139,7 +139,7 @@ pub const REACT_FILE_EXPR: &str = "jsx-file || tsx-file";
 /// All script files expression (js, ts, jsx, tsx)
 pub const ALL_SCRIPT_FILES_EXPR: &str = "js-file || ts-file || jsx-file || tsx-file";
 
-/// Component file expression (PascalCase && script file)
+/// Component file expression (`PascalCase` && script file)
 pub const COMPONENT_FILE_EXPR: &str = "PascalCase && (js-file || jsx-file || ts-file || tsx-file)";
 
 /// Utility file expression (kebab-case && script file)
@@ -245,8 +245,7 @@ mod tests {
         for pattern in patterns {
             assert!(
                 Regex::new(pattern).is_ok(),
-                "Pattern should compile successfully: {}",
-                pattern
+                "Pattern should compile successfully: {pattern}"
             );
         }
     }
@@ -272,7 +271,7 @@ mod tests {
         assert!(!pattern.is_match(""));
     }
 
-    /// Test PascalCase pattern validation
+    /// Test `PascalCase` pattern validation
     #[test]
     fn test_pascal_case_pattern() {
         let pattern = Regex::new(PASCAL_CASE_PATTERN).unwrap();
@@ -312,7 +311,7 @@ mod tests {
         assert!(!pattern.is_match(""));
     }
 
-    /// Test snake_case pattern validation
+    /// Test `snake_case` pattern validation
     #[test]
     fn test_snake_case_pattern() {
         let pattern = Regex::new(SNAKE_CASE_PATTERN).unwrap();

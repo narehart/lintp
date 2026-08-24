@@ -1,3 +1,6 @@
+//! Tests for the built-in functions, covering both results and the
+//! arity/type errors they report.
+
 use anyhow::Result;
 use regex::Regex;
 use std::collections::HashMap;
