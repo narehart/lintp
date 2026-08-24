@@ -76,7 +76,16 @@ const TARGETS: Record<string, PlatformInfo> = {
   },
 };
 
-export function preparePlatformPackage(target: string): string {
+/**
+ * Build the platform package for `target` and return its directory.
+ *
+ * `rootDir` defaults to the repo root and exists so tests can drive this
+ * against a temporary directory instead of writing into the real npm/ tree.
+ */
+export function preparePlatformPackage(
+  target: string,
+  rootDir: string = path.join(__dirname, "..")
+): string {
   const info = TARGETS[target];
   if (!info) {
     throw new Error(
@@ -86,7 +95,6 @@ export function preparePlatformPackage(target: string): string {
     );
   }
 
-  const rootDir = path.join(__dirname, "..");
   const mainPackage = JSON.parse(
     fs.readFileSync(path.join(rootDir, "package.json"), "utf8")
   ) as { version: string; license: string; repository: object };

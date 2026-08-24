@@ -1,5 +1,58 @@
 # Contributing to lintp
 
+## Local setup
+
+Node.js and Rust versions are pinned in `.tool-versions`; `asdf install` picks
+them up. The coverage gate additionally needs tarpaulin:
+
+```bash
+asdf install
+npm ci
+cargo install cargo-tarpaulin   # required by npm run coverage and the pre-push hook
+```
+
+## Quality gates
+
+Each language is gated by its own toolchain, so the same command fails the
+same way locally and in CI:
+
+| Command                | What it enforces                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------ |
+| `npm run check`        | `tsc --noEmit` and `cargo check`                                                     |
+| `npm run lint`         | `eslint --max-warnings 0` and `cargo clippy --all-targets -D warnings`               |
+| `npm run format:check` | `prettier --check` and `cargo fmt --check`                                           |
+| `npm test`             | vitest and `cargo test`                                                              |
+| `npm run coverage`     | vitest thresholds (`vitest.config.ts`) and tarpaulin `fail-under` (`tarpaulin.toml`) |
+
+Coverage thresholds live with the tool that enforces them — raise the
+TypeScript gate in `vitest.config.ts`, the Rust gate in `tarpaulin.toml`.
+
+Clippy runs at the `pedantic` tier and the library denies `missing_docs`: a
+new public item needs a doc comment, because the crate renders on docs.rs.
+
+CI runs [similarity](https://github.com/mizchi/similarity) over both halves of
+the repo to catch copy-pasted logic, and both checks fail the build.
+
+`similarity-ts` runs at its default threshold and the TypeScript sources are
+clean at it. For Rust, `scripts/check-similarity.sh` runs `similarity-rs` at
+the same default sensitivity and compares every reported pair against
+`scripts/similarity-baseline.txt`; anything not listed there fails. Raising the
+threshold instead would not work — two functions differing only in
+prefix/suffix score 91.78%, so a gate set above the known pairs would miss real
+copy-paste.
+
+The baseline is a list to shrink. Add to it only when two functions genuinely
+share a shape rather than an implementation (caller and callee, or two
+dispatchers), and write down why. Run it locally with:
+
+```bash
+cargo install similarity-rs similarity-ts --locked
+./scripts/check-similarity.sh
+```
+
+The pre-push hook runs lint, type check, format check and coverage. Wireit
+caches each task, so an unchanged tree re-runs almost nothing.
+
 ## Commit Message Guidelines
 
 This project enforces [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages.

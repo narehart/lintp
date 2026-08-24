@@ -1,3 +1,6 @@
+//! Tests for turning rule source text into an expression tree, including
+//! precedence, associativity and syntax errors.
+
 use anyhow::Result;
 use lintp::dsl::ast::{BinaryOperator, Expression, UnaryOperator};
 use lintp::dsl::parser::parse_expression;

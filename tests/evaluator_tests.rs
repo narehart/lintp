@@ -1,3 +1,6 @@
+//! Tests for evaluating a parsed expression against a path, including
+//! variable binding, type errors and indexing.
+
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::Path;

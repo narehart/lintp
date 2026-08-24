@@ -1,3 +1,6 @@
+//! Tests for the directory walk and rule application: ignore patterns,
+//! suffix precedence, path scopes, symlinks and I/O failures.
+
 use anyhow::Result;
 use lintp::config::{Config, ParsedConfig};
 use lintp::dsl::parser::parse_expression;
@@ -164,7 +167,7 @@ fn test_lint_valid_structure() -> Result<()> {
         .count();
 
     // All files should pass
-    assert!(failures == 0, "Expected 0 failures, got {}", failures);
+    assert!(failures == 0, "Expected 0 failures, got {failures}");
     assert!(successes > 0, "Expected more than 0 successes");
 
     Ok(())
@@ -185,8 +188,7 @@ fn test_lint_invalid_structure() -> Result<()> {
     // Should have at least 4 failures (one for each invalid file)
     assert!(
         failures >= 4,
-        "Expected at least 4 failures, got {}",
-        failures
+        "Expected at least 4 failures, got {failures}"
     );
 
     // Verify specific file failures
@@ -228,9 +230,11 @@ fn test_lint_ignore_patterns() -> Result<()> {
 
     // Helper function to check if any results contain a pattern
     let contains_pattern = |pattern: &str| {
-        results.iter().any(|r| match r {
-            LintResult::Success(path) => path.to_string_lossy().contains(pattern),
-            LintResult::Failure { path, .. } => path.to_string_lossy().contains(pattern),
+        results.iter().any(|r| {
+            let path = match r {
+                LintResult::Success(path) | LintResult::Failure { path, .. } => path,
+            };
+            path.to_string_lossy().contains(pattern)
         })
     };
 
@@ -331,7 +335,7 @@ fn test_directory_validation() -> Result<()> {
     Ok(())
 }
 
-/// A per-entry WalkDir error (e.g. a permission-denied subdirectory) must
+/// A per-entry `WalkDir` error (e.g. a permission-denied subdirectory) must
 /// be reported as a per-path failure and must not abort the whole lint run:
 /// readable files elsewhere in the tree still get reported.
 #[cfg(unix)]
@@ -339,6 +343,15 @@ fn test_directory_validation() -> Result<()> {
 fn test_lint_reports_unreadable_directory_without_aborting() -> Result<()> {
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
+
+    // Restore permissions on the way out (even on panic) so tempfile can
+    // delete the directory during its own Drop.
+    struct RestorePerms(PathBuf, std::fs::Permissions);
+    impl Drop for RestorePerms {
+        fn drop(&mut self) {
+            let _ = fs::set_permissions(&self.0, self.1.clone());
+        }
+    }
 
     let temp_dir = tempfile::tempdir()?;
     let root = temp_dir.path();
@@ -353,15 +366,6 @@ fn test_lint_reports_unreadable_directory_without_aborting() -> Result<()> {
 
     let original_perms = fs::metadata(&locked_dir)?.permissions();
     fs::set_permissions(&locked_dir, fs::Permissions::from_mode(0o000))?;
-
-    // Restore permissions on the way out (even on panic) so tempfile can
-    // delete the directory during its own Drop.
-    struct RestorePerms(PathBuf, std::fs::Permissions);
-    impl Drop for RestorePerms {
-        fn drop(&mut self) {
-            let _ = fs::set_permissions(&self.0, self.1.clone());
-        }
-    }
     let _restore = RestorePerms(locked_dir.clone(), original_perms);
 
     let config_content = r#"
@@ -394,8 +398,7 @@ lintp:
         results
             .iter()
             .any(|r| matches!(r, LintResult::Success(path) if path.ends_with("good.txt"))),
-        "Expected good.txt to still be linted: {:?}",
-        results
+        "Expected good.txt to still be linted: {results:?}"
     );
 
     assert!(
@@ -404,8 +407,7 @@ lintp:
             LintResult::Failure { path, rule, .. }
                 if path.ends_with("locked") && rule == "io"
         )),
-        "Expected a failure reported for the unreadable 'locked' directory: {:?}",
-        results
+        "Expected a failure reported for the unreadable 'locked' directory: {results:?}"
     );
 
     Ok(())
@@ -414,7 +416,7 @@ lintp:
 /// A symlink whose target is a directory must be checked against `.dir`
 /// naming rules using the symlink's own name (previously a silent gap:
 /// `entry.file_type().is_dir()` is false for a symlink), while its
-/// contents are still never traversed — WalkDir's no-follow behavior is
+/// contents are still never traversed — `WalkDir`'s no-follow behavior is
 /// unchanged. A broken symlink (missing target) falls back to being
 /// treated as a file rather than a directory, without panicking.
 #[cfg(unix)]
@@ -472,8 +474,7 @@ lintp:
             r,
             LintResult::Failure { path, rule, .. } if path.ends_with("BadDir") && rule == ".dir"
         )),
-        "Expected 'BadDir' to fail the .dir rule: {:?}",
-        results
+        "Expected 'BadDir' to fail the .dir rule: {results:?}"
     );
 
     // The symlinked directory is now also checked against .dir, and fails
@@ -482,8 +483,7 @@ lintp:
             r,
             LintResult::Failure { path, rule, .. } if path.ends_with("LinkBAD") && rule == ".dir"
         )),
-        "Expected symlinked directory 'LinkBAD' to fail the .dir rule: {:?}",
-        results
+        "Expected symlinked directory 'LinkBAD' to fail the .dir rule: {results:?}"
     );
 
     // The broken symlink does not panic and is handled as a file (falls
@@ -492,8 +492,7 @@ lintp:
         results
             .iter()
             .any(|r| matches!(r, LintResult::Success(path) if path.ends_with("BrokenLink"))),
-        "Expected broken symlink 'BrokenLink' to be handled as a file without panicking: {:?}",
-        results
+        "Expected broken symlink 'BrokenLink' to be handled as a file without panicking: {results:?}"
     );
 
     // The symlinked directory's contents are never visited: no result
@@ -506,8 +505,7 @@ lintp:
             };
             path.to_string_lossy().contains("should-not-be-linted")
         }),
-        "The symlinked directory's contents must not be traversed: {:?}",
-        results
+        "The symlinked directory's contents must not be traversed: {results:?}"
     );
 
     // The file inside the real 'BadDir' is reported exactly once (via the
@@ -524,8 +522,7 @@ lintp:
         .count();
     assert_eq!(
         file_js_count, 1,
-        "file.js inside BadDir should be reported exactly once: {:?}",
-        results
+        "file.js inside BadDir should be reported exactly once: {results:?}"
     );
 
     Ok(())
@@ -651,8 +648,7 @@ lintp:
     for result in &results {
         assert!(
             matches!(result, LintResult::Success(_)),
-            "Expected success, got: {:?}",
-            result
+            "Expected success, got: {result:?}"
         );
     }
 
@@ -693,16 +689,14 @@ lintp:
         LintResult::Failure { message, .. } => {
             assert!(
                 message.contains("(failed: kebab-case)"),
-                "Expected the failing conjunct to be named, got: {}",
-                message
+                "Expected the failing conjunct to be named, got: {message}"
             );
             assert!(
                 !message.contains("js-file)"),
-                "The passing conjunct must not be reported as failed: {}",
-                message
+                "The passing conjunct must not be reported as failed: {message}"
             );
         }
-        other => panic!("Expected failure, got: {:?}", other),
+        other @ LintResult::Success(_) => panic!("Expected failure, got: {other:?}"),
     }
 
     Ok(())
@@ -743,16 +737,14 @@ lintp:
         LintResult::Failure { message, .. } => {
             assert!(
                 message.contains("Component files must be PascalCase"),
-                "Expected the custom message, got: {}",
-                message
+                "Expected the custom message, got: {message}"
             );
             assert!(
                 !message.contains("Does not match rule"),
-                "Custom message should replace the default text: {}",
-                message
+                "Custom message should replace the default text: {message}"
             );
         }
-        other => panic!("Expected failure, got: {:?}", other),
+        other @ LintResult::Success(_) => panic!("Expected failure, got: {other:?}"),
     }
 
     Ok(())
@@ -797,8 +789,7 @@ lintp:
     for result in &results {
         assert!(
             matches!(result, LintResult::Success(_)),
-            "PATH/PARENT string ops failed: {:?}",
-            result
+            "PATH/PARENT string ops failed: {result:?}"
         );
     }
 
@@ -834,8 +825,7 @@ lintp:
     for result in &results {
         assert!(
             matches!(result, LintResult::Success(_)),
-            "expected success, got: {:?}",
-            result
+            "expected success, got: {result:?}"
         );
     }
 
@@ -892,7 +882,7 @@ lintp:
                 match result {
                     LintResult::Success(_) => {}
                     LintResult::Failure { path, .. } => {
-                        panic!("unexpected failure for {:?}", path)
+                        panic!("unexpected failure for {path:?}")
                     }
                 }
             }

@@ -1,3 +1,5 @@
+//! Shared helpers for building temporary projects and configs in tests.
+
 // Shared test support module, included via `mod common;` from several
 // integration test binaries. Each binary only exercises a subset of these
 // helpers/constants, so per-binary "never used" warnings are expected and
@@ -70,7 +72,7 @@ pub fn create_test_evaluation_context<'a>(
 
     let name = path
         .file_name()
-        .map_or("".to_string(), |n| n.to_string_lossy().to_string());
+        .map_or(String::new(), |n| n.to_string_lossy().to_string());
 
     variables.insert("NAME".to_string(), Value::String(name.clone()));
     variables.insert(
@@ -124,7 +126,7 @@ pub fn parse_custom_matchers(
 }
 
 /// Create a basic test config
-pub fn create_test_config() -> Result<Config> {
+pub fn create_test_config() -> Config {
     // Create global rules
     let mut global_rules = HashMap::new();
     global_rules.insert(".dir".to_string(), rule("kebab-case or PascalCase"));
@@ -166,16 +168,13 @@ pub fn create_test_config() -> Result<Config> {
     // Create ignore list
     let ignore = vec!["node_modules".to_string(), ".git".to_string()];
 
-    // Create config
-    let config = Config {
+    Config {
         lintp: LintPConfig {
             custom_matchers,
             config: rule_config,
             ignore,
         },
-    };
-
-    Ok(config)
+    }
 }
 
 /// Compare two files to check if they have the same content

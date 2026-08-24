@@ -11,6 +11,7 @@ use crate::dsl::parser::parse_expression;
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    /// Everything under the `lintp:` key.
     #[serde(rename = "lintp")]
     pub lintp: LintPConfig,
 }
@@ -37,7 +38,9 @@ pub struct LintPConfig {
 /// of the raw expression when the rule fails.
 #[derive(Debug, Clone)]
 pub struct RuleEntry {
+    /// The DSL expression a path must satisfy.
     pub rule: String,
+    /// Shown instead of the raw expression when the rule fails.
     pub message: Option<String>,
 }
 
@@ -62,48 +65,39 @@ fn validate_rule_key<E: serde::de::Error>(key: &str, scope: Option<&str>) -> Res
         return Ok(());
     }
     let location = match scope {
-        Some(path) => format!(" under path scope '{}'", path),
+        Some(path) => format!(" under path scope '{path}'"),
         None => String::new(),
     };
     let hint = if key.contains('/') || key.contains('*') {
         format!(
-            " — if '{}' is meant to scope rules to a path, nest extension rules under it (e.g. \"{}\": {{ .js: ... }})",
-            key, key
+            " — if '{key}' is meant to scope rules to a path, nest extension rules under it (e.g. \"{key}\": {{ .js: ... }})"
         )
     } else {
         String::new()
     };
     Err(E::custom(format!(
-        "Invalid rule key '{}'{}: rule keys are extension patterns starting with '.' (.js, .test.ts, .dir, .*){}",
-        key, location, hint
+        "Invalid rule key '{key}'{location}: rule keys are extension patterns starting with '.' (.js, .test.ts, .dir, .*){hint}"
     )))
 }
 
-/// Expand glob-style brace alternation: ".{png,jpg}" → [".png", ".jpg"],
-/// "src/{a,b}/*" → ["src/a/*", "src/b/*"]. Multiple groups expand as a
+/// Expand glob-style brace alternation: `.{png,jpg}` → `[".png", ".jpg"]`,
+/// `src/{a,b}/*` → `["src/a/*", "src/b/*"]`. Multiple groups expand as a
 /// cartesian product; nesting is not supported. Returns the input
 /// unchanged when it contains no braces.
 fn expand_braces<E: serde::de::Error>(key: &str) -> Result<Vec<String>, E> {
     let (Some(open), Some(close)) = (key.find('{'), key.find('}')) else {
         if key.contains('{') || key.contains('}') {
-            return Err(E::custom(format!(
-                "Invalid key '{}': unbalanced braces",
-                key
-            )));
+            return Err(E::custom(format!("Invalid key '{key}': unbalanced braces")));
         }
         return Ok(vec![key.to_string()]);
     };
     if close < open {
-        return Err(E::custom(format!(
-            "Invalid key '{}': unbalanced braces",
-            key
-        )));
+        return Err(E::custom(format!("Invalid key '{key}': unbalanced braces")));
     }
     let inner = &key[open + 1..close];
     if inner.contains('{') {
         return Err(E::custom(format!(
-            "Invalid key '{}': nested braces are not supported",
-            key
+            "Invalid key '{key}': nested braces are not supported"
         )));
     }
     let (prefix, suffix) = (&key[..open], &key[close + 1..]);
@@ -112,13 +106,12 @@ fn expand_braces<E: serde::de::Error>(key: &str) -> Result<Vec<String>, E> {
         let alt = alt.trim();
         if alt.is_empty() {
             return Err(E::custom(format!(
-                "Invalid key '{}': empty alternative in braces",
-                key
+                "Invalid key '{key}': empty alternative in braces"
             )));
         }
         // suffix may contain further brace groups: expand recursively
         for rest in expand_braces::<E>(suffix)? {
-            out.push(format!("{}{}{}", prefix, alt, rest));
+            out.push(format!("{prefix}{alt}{rest}"));
         }
     }
     Ok(out)
@@ -146,11 +139,8 @@ where
     let raw_value = Value::deserialize(deserializer)?;
 
     // Only accept map values at the top level
-    let raw_map = match raw_value {
-        Value::Mapping(map) => map,
-        _ => {
-            return Err(D::Error::custom("Expected a map for config"));
-        }
+    let Value::Mapping(raw_map) = raw_value else {
+        return Err(D::Error::custom("Expected a map for config"));
     };
 
     // Process the raw map into our structured RuleConfig
@@ -159,11 +149,8 @@ where
 
     for (key_value, value) in raw_map {
         // Extract the key as a string
-        let key = match key_value {
-            Value::String(s) => s,
-            _ => {
-                return Err(D::Error::custom("Config keys must be strings"));
-            }
+        let Value::String(key) = key_value else {
+            return Err(D::Error::custom("Config keys must be strings"));
         };
 
         // Process the value based on its type
@@ -198,27 +185,20 @@ where
                 for scope_key in &scope_keys {
                     if let Err(e) = glob::Pattern::new(scope_key) {
                         return Err(D::Error::custom(format!(
-                            "Invalid glob pattern for path scope '{}': {}",
-                            scope_key, e
+                            "Invalid glob pattern for path scope '{scope_key}': {e}"
                         )));
                     }
                 }
                 if nested_map.is_empty() {
-                    return Err(D::Error::custom(format!(
-                        "Path scope '{}' has no rules",
-                        key
-                    )));
+                    return Err(D::Error::custom(format!("Path scope '{key}' has no rules")));
                 }
 
                 let mut rule_map = HashMap::new();
 
                 for (nested_key_value, nested_value) in nested_map {
                     // Extract the nested key as a string
-                    let nested_key = match nested_key_value {
-                        Value::String(s) => s,
-                        _ => {
-                            return Err(D::Error::custom("Config keys must be strings"));
-                        }
+                    let Value::String(nested_key) = nested_key_value else {
+                        return Err(D::Error::custom("Config keys must be strings"));
                     };
 
                     // Extract the nested value: a rule string or {rule, message}
@@ -232,8 +212,7 @@ where
                         }
                         _ => {
                             return Err(D::Error::custom(format!(
-                                "Value for '{}' must be a string or a map",
-                                nested_key
+                                "Value for '{nested_key}' must be a string or a map"
                             )));
                         }
                     };
@@ -249,8 +228,7 @@ where
             }
             _ => {
                 return Err(D::Error::custom(format!(
-                    "Value for '{}' must be a string or a map",
-                    key
+                    "Value for '{key}' must be a string or a map"
                 )));
             }
         }
@@ -275,21 +253,14 @@ where
     let mut message = None;
 
     for (option_key, option_value) in mapping {
-        let option_name = match option_key {
-            Value::String(s) => s,
-            _ => {
-                return Err(D::Error::custom("Config keys must be strings"));
-            }
+        let Value::String(option_name) = option_key else {
+            return Err(D::Error::custom("Config keys must be strings"));
         };
 
-        let option_string = match option_value {
-            Value::String(s) => s,
-            _ => {
-                return Err(D::Error::custom(format!(
-                    "'{}' for rule '{}' must be a string",
-                    option_name, key
-                )));
-            }
+        let Value::String(option_string) = option_value else {
+            return Err(D::Error::custom(format!(
+                "'{option_name}' for rule '{key}' must be a string"
+            )));
         };
 
         match option_name.as_str() {
@@ -297,15 +268,14 @@ where
             "message" => message = Some(option_string),
             other => {
                 return Err(D::Error::custom(format!(
-                    "Unknown option '{}' for rule '{}': expected 'rule' or 'message'",
-                    other, key
+                    "Unknown option '{other}' for rule '{key}': expected 'rule' or 'message'"
                 )));
             }
         }
     }
 
-    let rule = rule
-        .ok_or_else(|| D::Error::custom(format!("Rule '{}' is missing the 'rule' field", key)))?;
+    let rule =
+        rule.ok_or_else(|| D::Error::custom(format!("Rule '{key}' is missing the 'rule' field")))?;
 
     Ok(RuleEntry { rule, message })
 }
@@ -369,20 +339,19 @@ pub fn load_config(path: &Path) -> std::result::Result<ParsedConfig, crate::Erro
     for name in config.lintp.custom_matchers.keys() {
         if name == "true" || name == "false" {
             return Err(crate::Error::Dsl(format!(
-                "Invalid matcher name '{}': shadowed by the boolean literal",
-                name
+                "Invalid matcher name '{name}': shadowed by the boolean literal"
             )));
         }
     }
 
     // Parse custom matchers
     let parsed_matchers = parse_custom_matchers(&config.lintp.custom_matchers)
-        .map_err(|e| crate::Error::Dsl(format!("{:#}", e)))?;
+        .map_err(|e| crate::Error::Dsl(format!("{e:#}")))?;
 
     // Parse every rule up front so config errors surface at startup
     // instead of when a matching file first appears
-    let parsed_rules = parse_rules(&config, &parsed_matchers)
-        .map_err(|e| crate::Error::Dsl(format!("{:#}", e)))?;
+    let parsed_rules =
+        parse_rules(&config, &parsed_matchers).map_err(|e| crate::Error::Dsl(format!("{e:#}")))?;
 
     Ok(ParsedConfig {
         raw: config,
@@ -399,7 +368,7 @@ pub struct ParsedConfig {
     /// Custom matchers (`custom-matchers:`), parsed into expressions and
     /// keyed by name.
     pub parsed_matchers: HashMap<String, Expression>,
-    /// Every distinct rule string, pre-parsed. Populated by load_config;
+    /// Every distinct rule string, pre-parsed. Populated by `load_config`;
     /// rules missing from this map are parsed lazily during linting.
     pub parsed_rules: HashMap<String, Expression>,
 }
@@ -418,7 +387,7 @@ fn parse_rules(
         .config
         .global_rules
         .iter()
-        .map(|(key, entry)| (format!("rule '{}'", key), &entry.rule));
+        .map(|(key, entry)| (format!("rule '{key}'"), &entry.rule));
     let scoped = config
         .lintp
         .config
@@ -427,7 +396,7 @@ fn parse_rules(
         .flat_map(|(path, rules)| {
             rules
                 .iter()
-                .map(move |(key, entry)| (format!("rule '{}' under '{}'", key, path), &entry.rule))
+                .map(move |(key, entry)| (format!("rule '{key}' under '{path}'"), &entry.rule))
         });
 
     for (location, rule_str) in global.chain(scoped) {
@@ -436,15 +405,12 @@ fn parse_rules(
         }
 
         let expr = parse_expression(rule_str)
-            .with_context(|| format!("Failed to parse {}: {}", location, rule_str))?;
+            .with_context(|| format!("Failed to parse {location}: {rule_str}"))?;
 
         for reference in find_references_in_expression(&expr) {
             if !matchers.contains_key(&reference) {
                 return Err(anyhow::anyhow!(
-                    "Unknown matcher '{}' referenced by {}: {}",
-                    reference,
-                    location,
-                    rule_str
+                    "Unknown matcher '{reference}' referenced by {location}: {rule_str}"
                 ));
             }
         }
@@ -466,9 +432,7 @@ fn parse_custom_matchers(
         // Validate expression syntax before continuing
         if expr_str.contains("====") {
             return Err(anyhow::anyhow!(
-                "Invalid syntax in matcher '{}': {}",
-                name,
-                expr_str
+                "Invalid syntax in matcher '{name}': {expr_str}"
             ));
         }
 
@@ -496,8 +460,7 @@ fn parse_matcher_recursive(
     // Check for circular references
     if in_progress.contains(name) {
         return Err(anyhow::anyhow!(
-            "Circular reference detected for matcher: {}",
-            name
+            "Circular reference detected for matcher: {name}"
         ));
     }
 
@@ -512,7 +475,7 @@ fn parse_matcher_recursive(
     if let Some(expr_str) = matchers.get(name) {
         // Parse the expression
         let expr = parse_expression(expr_str)
-            .with_context(|| format!("Failed to parse matcher: {}", name))?;
+            .with_context(|| format!("Failed to parse matcher: {name}"))?;
 
         // Look for references to other matchers and process them first
         let references = find_references_in_expression(&expr);

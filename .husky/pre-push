@@ -26,11 +26,12 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Run tests
-echo "Running tests..."
-npm run test
+# Run tests with the coverage gates (wireit caches, so an unchanged tree is
+# near-instant). Needs cargo-tarpaulin: cargo install cargo-tarpaulin
+echo "Running tests and coverage gates..."
+npm run coverage
 if [ $? -ne 0 ]; then
-  echo "❌ Tests failed. Please fix failing tests before pushing."
+  echo "❌ Tests or coverage gates failed. Fix them before pushing."
   exit 1
 fi
 

@@ -163,12 +163,12 @@ fn covers_custom_regex() -> Result<()> {
     touch(dir.path(), "0001_create_users.sql")?;
     touch(dir.path(), "create_users.sql")?;
     let config = load(
-        r#"
+        r"
 lintp:
   config:
     .sql: 'matches($BASENAME, /^\d{4}_[a-z_]+$/)'
   ignore: []
-"#,
+",
     )?;
     assert_eq!(failing_names(dir.path(), &config)?, ["create_users.sql"]);
     Ok(())

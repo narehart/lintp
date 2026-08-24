@@ -55,8 +55,8 @@ lintp:
       rule: '!root || $NAME == "lintp.yml"'
       message: "Root YAML is lintp.yml only; workflow YAML lives in .github/"
     .toml:
-      rule: '!root || $NAME == "Cargo.toml"'
-      message: "Root TOML is Cargo.toml only"
+      rule: '!root || in($NAME, ["Cargo.toml", "tarpaulin.toml"])'
+      message: "Root TOML is Cargo.toml and tarpaulin.toml (the Rust coverage gate) only"
     .lock:
       rule: '!root || in($NAME, ["Cargo.lock"])'
       message: "Root lockfiles are Cargo.lock only (package-lock.json is covered by the JSON rule)"

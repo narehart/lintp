@@ -1,3 +1,6 @@
+//! Tests for loading and validating `lintp.yml`: rule-key shapes, path
+//! scopes, brace expansion, matcher resolution and the errors each produces.
+
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
@@ -152,13 +155,13 @@ lintp:
 #[test]
 fn test_config_loading_errors() -> Result<()> {
     // Test with malformed YAML
-    let config_content = r#"
+    let config_content = r"
 lintp:
   custom-matchers:
     - invalid
   config:
     not valid yaml
-"#;
+";
 
     let test_config = create_test_config(config_content)?;
     let parsed_config = load_config(&test_config.config_path);
@@ -195,8 +198,7 @@ fn test_error_variants_are_matchable() -> Result<()> {
         .expect("nonexistent config path should fail to load");
     assert!(
         matches!(err, lintp::Error::ConfigNotFound { .. }),
-        "expected ConfigNotFound, got: {}",
-        err
+        "expected ConfigNotFound, got: {err}"
     );
 
     let bad_yaml = create_test_config("lintp: [unterminated")?;
@@ -204,8 +206,7 @@ fn test_error_variants_are_matchable() -> Result<()> {
     let err = result.err().expect("malformed YAML should fail to load");
     assert!(
         matches!(err, lintp::Error::ConfigParse { .. }),
-        "expected ConfigParse, got: {}",
-        err
+        "expected ConfigParse, got: {err}"
     );
 
     Ok(())
@@ -214,7 +215,7 @@ fn test_error_variants_are_matchable() -> Result<()> {
 /// Tests for config with circular references in custom matchers
 #[test]
 fn test_config_with_circular_references() -> Result<()> {
-    let config_content = r#"
+    let config_content = r"
 lintp:
   custom-matchers:
     a: b
@@ -223,7 +224,7 @@ lintp:
   
   config:
     .js: a
-"#;
+";
 
     let test_config = create_test_config(config_content)?;
     let parsed_config = load_config(&test_config.config_path);
@@ -237,11 +238,11 @@ lintp:
 /// Tests for config with empty/minimal values
 #[test]
 fn test_minimal_config() -> Result<()> {
-    let config_content = r#"
+    let config_content = r"
 lintp:
   config:
     .js: matches($NAME, /.*\.js$/)
-"#;
+";
 
     let test_config = create_test_config(config_content)?;
     let parsed_config = load_config(&test_config.config_path)?;
@@ -277,11 +278,10 @@ lintp:
     let Err(error) = load_config(&config_path) else {
         panic!("Expected load_config to reject the typo");
     };
-    let message = format!("{:#}", error);
+    let message = format!("{error:#}");
     assert!(
         message.contains("keba-case"),
-        "Error should name the unknown matcher, got: {}",
-        message
+        "Error should name the unknown matcher, got: {message}"
     );
 
     Ok(())
@@ -402,14 +402,11 @@ lintp:
             "{:#}",
             result
                 .err()
-                .unwrap_or_else(|| panic!("case '{}' should fail to load", name))
+                .unwrap_or_else(|| panic!("case '{name}' should fail to load"))
         );
         assert!(
             err.contains(expected),
-            "case '{}': error should mention '{}', got: {}",
-            name,
-            expected,
-            err
+            "case '{name}': error should mention '{expected}', got: {err}"
         );
     }
 
@@ -441,7 +438,7 @@ lintp:
     let parsed = load_config(&config.config_path)?;
     let global = &parsed.raw.lintp.config.global_rules;
     for key in [".png", ".jpg", ".webp"] {
-        let entry = global.get(key).unwrap_or_else(|| panic!("missing {}", key));
+        let entry = global.get(key).unwrap_or_else(|| panic!("missing {key}"));
         assert_eq!(entry.rule, "camel");
         assert_eq!(entry.message.as_deref(), Some("images are camelCase"));
     }
@@ -470,12 +467,12 @@ lintp:
         ("\".{a{b,c}}\": \"true\"", "nested braces"),
         ("\".{png,jpg\": \"true\"", "unbalanced braces"),
     ] {
-        let bad = create_test_config(&format!("\nlintp:\n  config:\n    {}\n", yaml))?;
+        let bad = create_test_config(&format!("\nlintp:\n  config:\n    {yaml}\n"))?;
         let err = match load_config(&bad.config_path) {
-            Err(e) => format!("{:#}", e),
-            Ok(_) => panic!("'{}' should fail to load", yaml),
+            Err(e) => format!("{e:#}"),
+            Ok(_) => panic!("'{yaml}' should fail to load"),
         };
-        assert!(err.contains(expected), "'{}': got {}", yaml, err);
+        assert!(err.contains(expected), "'{yaml}': got {err}");
     }
 
     Ok(())

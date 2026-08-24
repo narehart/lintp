@@ -28,6 +28,7 @@ pub enum Error {
     Io {
         /// The path that could not be read.
         path: PathBuf,
+        /// The underlying filesystem error.
         #[source]
         source: std::io::Error,
     },
@@ -40,6 +41,7 @@ pub enum Error {
     ConfigParse {
         /// The config file that failed to parse.
         path: PathBuf,
+        /// The underlying YAML error, including line and column.
         #[source]
         source: serde_yaml::Error,
     },
@@ -52,6 +54,7 @@ pub enum Error {
         kind: &'static str,
         /// The pattern text that failed to compile.
         pattern: String,
+        /// The underlying glob compilation error.
         #[source]
         source: glob::PatternError,
     },

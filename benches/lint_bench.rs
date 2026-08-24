@@ -1,3 +1,8 @@
+//! Benchmarks for a full lint run, with and without a `siblings()` rule.
+
+// criterion_group! generates an undocumented harness fn.
+#![allow(missing_docs)]
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::fs;
 use std::path::Path;
@@ -24,14 +29,14 @@ lintp:
 "#;
 
 /// Build a fixture tree: `dirs` directories, each containing `files_per_dir`
-/// .js and .ts files, so run_lint visits dirs * files_per_dir * 2 files.
+/// .js and .ts files, so `run_lint` visits dirs * `files_per_dir` * 2 files.
 fn build_fixture(root: &Path, dirs: usize, files_per_dir: usize) {
     for d in 0..dirs {
-        let dir = root.join(format!("module-{}", d));
+        let dir = root.join(format!("module-{d}"));
         fs::create_dir_all(&dir).unwrap();
         for f in 0..files_per_dir {
-            fs::write(dir.join(format!("some-file-{}.js", f)), "").unwrap();
-            fs::write(dir.join(format!("SomeType{}.ts", f)), "").unwrap();
+            fs::write(dir.join(format!("some-file-{f}.js")), "").unwrap();
+            fs::write(dir.join(format!("SomeType{f}.ts")), "").unwrap();
         }
     }
 }
@@ -59,7 +64,7 @@ fn bench_run_lint(c: &mut Criterion) {
     let config = load_config(&config_path).unwrap();
 
     c.bench_function("run_lint 400 files", |b| {
-        b.iter(|| run_lint(temp.path(), &config, false).unwrap())
+        b.iter(|| run_lint(temp.path(), &config, false).unwrap());
     });
 }
 
@@ -74,7 +79,7 @@ fn bench_run_lint_siblings(c: &mut Criterion) {
     let config = load_config(&config_path).unwrap();
 
     c.bench_function("run_lint 400 files with siblings() rule", |b| {
-        b.iter(|| run_lint(temp.path(), &config, false).unwrap())
+        b.iter(|| run_lint(temp.path(), &config, false).unwrap());
     });
 }
 

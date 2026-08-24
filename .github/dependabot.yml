@@ -1,0 +1,43 @@
+version: 2
+
+updates:
+  # Cargo and npm are grouped separately per ecosystem, and patch/minor bumps
+  # are batched into one PR each: this repo releases through release-please on
+  # conventional commits, so a flood of individual dependency PRs turns into a
+  # flood of changelog entries.
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: scope
+    groups:
+      cargo-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: scope
+    groups:
+      npm-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Actions are pinned to commit SHAs throughout the workflows, which means
+  # nothing updates them without this.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
