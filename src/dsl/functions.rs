@@ -35,7 +35,7 @@ pub(crate) fn call_lambda_function_impl(
     context: &EvaluationContext,
 ) -> Result<Value> {
     let Value::List(list) = collection else {
-        return Err(anyhow::anyhow!("{}() first argument must be a list", name));
+        return Err(anyhow::anyhow!("{name}() first argument must be a list"));
     };
 
     // Legacy form: the lambda written as a quoted string ('endsWith($item, ..)')
@@ -77,7 +77,7 @@ pub(crate) fn call_lambda_function_impl(
             }
             Ok(Value::List(result))
         }
-        _ => Err(anyhow::anyhow!("Unknown lambda function: {}", name)),
+        _ => Err(anyhow::anyhow!("Unknown lambda function: {name}")),
     }
 }
 
@@ -104,7 +104,7 @@ fn glob_paths(pattern: &str, context: &EvaluationContext) -> Result<Vec<PathBuf>
     }
 
     let paths: Vec<PathBuf> = glob::glob(pattern)
-        .map_err(|e| anyhow::anyhow!("Invalid glob pattern: {}", e))?
+        .map_err(|e| anyhow::anyhow!("Invalid glob pattern: {e}"))?
         .flatten()
         .collect();
 
@@ -141,7 +141,7 @@ fn expect_args(name: &str, args: &[Value], count: usize) -> Result<()> {
 fn string_arg<'a>(args: &'a [Value], index: usize, message: &str) -> Result<&'a str> {
     match &args[index] {
         Value::String(s) => Ok(s),
-        _ => Err(anyhow::anyhow!("{}", message)),
+        _ => Err(anyhow::anyhow!("{message}")),
     }
 }
 
@@ -172,7 +172,7 @@ fn binary_function(
 ) -> Result<Value> {
     expect_args(name, args, 2)?;
 
-    apply(&args[0], &args[1]).unwrap_or_else(|| Err(anyhow::anyhow!("{}", type_error)))
+    apply(&args[0], &args[1]).unwrap_or_else(|| Err(anyhow::anyhow!("{type_error}")))
 }
 
 /// The subset of [`binary_function`] whose operation is a `str` predicate that
@@ -223,7 +223,7 @@ pub(crate) fn call_function_impl(
                 // A string pattern is treated as a glob
                 (Value::String(s), Value::String(pattern)) => Some(
                     Pattern::new(pattern)
-                        .map_err(|e| anyhow::anyhow!("Invalid glob pattern: {}", e))
+                        .map_err(|e| anyhow::anyhow!("Invalid glob pattern: {e}"))
                         .map(|glob| Value::Boolean(glob.matches(s))),
                 ),
                 _ => None,
@@ -270,7 +270,7 @@ pub(crate) fn call_function_impl(
         "siblings" | "children" | "find" => glob_function(name, args, context),
         "any" | "all" | "map" | "filter" => string_lambda_function(name, args, context),
         "count" => count_function(args),
-        _ => Err(anyhow::anyhow!("Unknown function: {}", name)),
+        _ => Err(anyhow::anyhow!("Unknown function: {name}")),
     }
 }
 
@@ -363,7 +363,7 @@ fn string_lambda_function(
     context: &EvaluationContext,
 ) -> Result<Value> {
     if args.len() != 2 {
-        return Err(anyhow::anyhow!("{}() requires 2 arguments", name));
+        return Err(anyhow::anyhow!("{name}() requires 2 arguments"));
     }
 
     let expr = match &args[1] {
@@ -372,8 +372,7 @@ fn string_lambda_function(
         }
         _ => {
             return Err(anyhow::anyhow!(
-                "{}() second argument must be an expression",
-                name
+                "{name}() second argument must be an expression"
             ));
         }
     };

@@ -120,10 +120,10 @@ pub(crate) fn evaluate_impl(expr: &Expression, context: &EvaluationContext) -> R
                 if let Some(item) = context.item_context.as_ref() {
                     Ok(item.clone())
                 } else {
-                    Err(anyhow::anyhow!("Unknown variable: {}", name))
+                    Err(anyhow::anyhow!("Unknown variable: {name}"))
                 }
             } else {
-                Err(anyhow::anyhow!("Unknown variable: {}", name))
+                Err(anyhow::anyhow!("Unknown variable: {name}"))
             }
         }
 
@@ -264,7 +264,7 @@ pub(crate) fn evaluate_impl(expr: &Expression, context: &EvaluationContext) -> R
             if let Some(expr) = context.custom_matchers.get(name) {
                 evaluate_impl(expr, context)
             } else {
-                Err(anyhow::anyhow!("Unknown reference: {}", name))
+                Err(anyhow::anyhow!("Unknown reference: {name}"))
             }
         }
 
@@ -318,9 +318,7 @@ pub(crate) fn evaluate_impl(expr: &Expression, context: &EvaluationContext) -> R
                     }
                 }
                 _ => Err(anyhow::anyhow!(
-                    "Cannot index into {:?} with {:?}",
-                    expr_clone,
-                    index_clone
+                    "Cannot index into {expr_clone:?} with {index_clone:?}"
                 )),
             }
         }

@@ -37,7 +37,7 @@ pub fn parse_expression(input: &str) -> std::result::Result<Expression, crate::E
 pub(crate) fn parse_expression_impl(input: &str) -> Result<Expression> {
     // Parse the input using Pest - use top_level to enforce EOI
     let pairs = DslParser::parse(Rule::top_level, input)
-        .map_err(|e| anyhow::anyhow!("Failed to parse expression: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to parse expression: {e}"))?;
 
     // Get the first (and only) pair from the result
     let pair = pairs
@@ -216,7 +216,7 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
                             // Parse the expression
                             let inner_pairs = DslParser::parse(Rule::expression, expr_content)
                                 .map_err(|e| {
-                                    anyhow::anyhow!("Failed to parse template expression: {}", e)
+                                    anyhow::anyhow!("Failed to parse template expression: {e}")
                                 })?;
 
                             let inner_pair = inner_pairs
@@ -234,8 +234,7 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
                             // a real parse error, not something to paper over
                             // by treating the rest of the string as a literal.
                             return Err(anyhow::anyhow!(
-                                "Unterminated \"${{\" in string template: {}",
-                                content
+                                "Unterminated \"${{\" in string template: {content}"
                             ));
                         }
                     } else {
@@ -288,7 +287,7 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
             let value = pair
                 .as_str()
                 .parse::<i64>()
-                .map_err(|e| anyhow::anyhow!("Failed to parse integer: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Failed to parse integer: {e}"))?;
             Ok(Expression::IntegerLiteral(value))
         }
 
@@ -311,7 +310,7 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
 
             // Make sure it's a valid regex pattern
             if s.len() < 3 || !s.starts_with('/') || !s.ends_with('/') {
-                return Err(anyhow::anyhow!("Invalid regex literal: {}", s));
+                return Err(anyhow::anyhow!("Invalid regex literal: {s}"));
             }
 
             let pattern = &s[1..s.len() - 1]; // Remove the / delimiters
@@ -354,14 +353,14 @@ fn parse_expression_pair(pair: pest::iterators::Pair<Rule>) -> Result<Expression
                 || !template_str.starts_with("${")
                 || !template_str.ends_with('}')
             {
-                return Err(anyhow::anyhow!("Invalid string template: {}", template_str));
+                return Err(anyhow::anyhow!("Invalid string template: {template_str}"));
             }
 
             let inner_expr_str = &template_str[2..template_str.len() - 1];
 
             // Parse the inner expression
             let inner_pairs = DslParser::parse(Rule::expression, inner_expr_str)
-                .map_err(|e| anyhow::anyhow!("Failed to parse template expression: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Failed to parse template expression: {e}"))?;
 
             let inner_pair = inner_pairs
                 .into_iter()

@@ -410,10 +410,7 @@ fn parse_rules(
         for reference in find_references_in_expression(&expr) {
             if !matchers.contains_key(&reference) {
                 return Err(anyhow::anyhow!(
-                    "Unknown matcher '{}' referenced by {}: {}",
-                    reference,
-                    location,
-                    rule_str
+                    "Unknown matcher '{reference}' referenced by {location}: {rule_str}"
                 ));
             }
         }
@@ -435,9 +432,7 @@ fn parse_custom_matchers(
         // Validate expression syntax before continuing
         if expr_str.contains("====") {
             return Err(anyhow::anyhow!(
-                "Invalid syntax in matcher '{}': {}",
-                name,
-                expr_str
+                "Invalid syntax in matcher '{name}': {expr_str}"
             ));
         }
 
@@ -465,8 +460,7 @@ fn parse_matcher_recursive(
     // Check for circular references
     if in_progress.contains(name) {
         return Err(anyhow::anyhow!(
-            "Circular reference detected for matcher: {}",
-            name
+            "Circular reference detected for matcher: {name}"
         ));
     }
 

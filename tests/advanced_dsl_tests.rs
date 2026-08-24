@@ -54,7 +54,7 @@ fn eval_in_context(expr_str: &str, context: &EvaluationContext) -> Result<Value>
 fn eval_bool(expr_str: &str, context: &EvaluationContext) -> Result<bool> {
     match eval_in_context(expr_str, context)? {
         Value::Boolean(b) => Ok(b),
-        other => Err(anyhow::anyhow!("Expected boolean, got: {:?}", other)),
+        other => Err(anyhow::anyhow!("Expected boolean, got: {other:?}")),
     }
 }
 
@@ -67,13 +67,13 @@ fn eval_list(expr_str: &str, context: &EvaluationContext) -> Result<Vec<String>>
                 match item {
                     Value::String(s) => result.push(s),
                     other => {
-                        return Err(anyhow::anyhow!("Expected string in list, got: {:?}", other));
+                        return Err(anyhow::anyhow!("Expected string in list, got: {other:?}"));
                     }
                 }
             }
             Ok(result)
         }
-        other => Err(anyhow::anyhow!("Expected list, got: {:?}", other)),
+        other => Err(anyhow::anyhow!("Expected list, got: {other:?}")),
     }
 }
 
@@ -81,7 +81,7 @@ fn eval_list(expr_str: &str, context: &EvaluationContext) -> Result<Vec<String>>
 fn eval_string(expr_str: &str, context: &EvaluationContext) -> Result<String> {
     match eval_in_context(expr_str, context)? {
         Value::String(s) => Ok(s),
-        other => Err(anyhow::anyhow!("Expected string, got: {:?}", other)),
+        other => Err(anyhow::anyhow!("Expected string, got: {other:?}")),
     }
 }
 
