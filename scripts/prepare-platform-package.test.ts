@@ -164,18 +164,24 @@ describe("prepare-platform-package.ts", () => {
       );
     });
 
-    it("makes the unix binary executable", () => {
-      seedRoot("aarch64-apple-darwin");
+    // Windows has no POSIX permission bits to read back, so the chmod this
+    // asserts is only observable on a POSIX filesystem. The release job that
+    // builds the unix packages runs on Linux and macOS anyway.
+    it.skipIf(process.platform === "win32")(
+      "makes the unix binary executable",
+      () => {
+        seedRoot("aarch64-apple-darwin");
 
-      const packageDir = preparePlatformPackage(
-        "aarch64-apple-darwin",
-        rootDir
-      );
+        const packageDir = preparePlatformPackage(
+          "aarch64-apple-darwin",
+          rootDir
+        );
 
-      const { mode } = fs.statSync(path.join(packageDir, "bin", "lintp"));
-      // 0o111 — the execute bit for user, group and other
-      expect(mode & 0o111).toBe(0o111);
-    });
+        const { mode } = fs.statSync(path.join(packageDir, "bin", "lintp"));
+        // 0o111 — the execute bit for user, group and other
+        expect(mode & 0o111).toBe(0o111);
+      }
+    );
 
     it("writes a manifest npm can parse, newline-terminated", () => {
       seedRoot("aarch64-apple-darwin");
