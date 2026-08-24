@@ -20,9 +20,6 @@
     "coverage": "wireit",
     "coverage:ts": "wireit",
     "coverage:rust": "wireit",
-    "coverage:check": "wireit",
-    "coverage:check:ts": "wireit",
-    "coverage:check:rust": "wireit",
     "sync-toml": "wireit",
     "sync-optional-deps": "wireit",
     "prepublishOnly": "wireit",
@@ -206,41 +203,16 @@
       ]
     },
     "coverage:rust": {
-      "command": "cargo tarpaulin --out Html --output-dir target/coverage --fail-under 60",
+      "command": "cargo tarpaulin",
       "files": [
         "src/**/*.rs",
+        "tests/**/*.rs",
         "Cargo.toml",
-        "Cargo.lock"
+        "Cargo.lock",
+        "tarpaulin.toml"
       ],
       "output": [
-        "target/coverage/**"
-      ]
-    },
-    "coverage:check": {
-      "command": "tsx scripts/check-coverage.ts",
-      "files": [
-        "scripts/check-coverage.ts"
-      ],
-      "dependencies": [
-        "coverage"
-      ]
-    },
-    "coverage:check:ts": {
-      "command": "tsx scripts/check-coverage.ts --ts",
-      "files": [
-        "scripts/check-coverage.ts"
-      ],
-      "dependencies": [
-        "coverage:ts"
-      ]
-    },
-    "coverage:check:rust": {
-      "command": "tsx scripts/check-coverage.ts --rust",
-      "files": [
-        "scripts/check-coverage.ts"
-      ],
-      "dependencies": [
-        "coverage:rust"
+        "target/tarpaulin/**"
       ]
     },
     "docs:build": {
@@ -331,21 +303,21 @@
       ]
     },
     "lint:ts": {
-      "command": "eslint .",
+      "command": "eslint . --max-warnings 0",
       "files": [
         "**/*.{ts,js}",
         "!dist/**",
         "!target/**",
         "!node_modules/**",
         "!coverage/**",
-        "eslint.config.js"
+        "eslint.config.mjs"
       ],
       "dependencies": [
         "check:ts"
       ]
     },
     "lint:rust": {
-      "command": "cargo clippy -- -D warnings",
+      "command": "cargo clippy --all-targets -- -D warnings",
       "files": [
         "src/**/*.rs",
         "Cargo.toml",

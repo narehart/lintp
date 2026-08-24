@@ -16,13 +16,16 @@ export default defineConfig({
         "**/*.config.ts",
         "**/vitest.config.ts",
         "**/commitlint.config.ts",
-        "**/check-coverage.ts",
       ],
+      // The gate for the TypeScript half, enforced by vitest itself. The Rust
+      // half is gated the equivalent way, by fail-under in tarpaulin.toml.
+      // Branches and functions sit lower than lines because the npm
+      // launcher's platform-detection paths can't all run on one host.
       thresholds: {
         lines: 70,
+        statements: 70,
         functions: 60,
         branches: 60,
-        statements: 70,
       },
     },
   },

@@ -47,6 +47,26 @@ path = "src/main.rs"
 name = "lintp"
 path = "src/lib.rs"
 
+# Lints live here rather than in the clippy invocation so `cargo clippy` in an
+# editor sees exactly what CI sees.
+[lints.rust]
+# The crate is published to crates.io and rendered on docs.rs; a public item
+# without docs is a gap in the reference someone is reading right now.
+missing_docs = "deny"
+unsafe_code = "forbid"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Allowed from pedantic: these fire constantly on this codebase's shape and
+# fixing them would make the code worse, not better.
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+must_use_candidate = "allow"
+# The parser and evaluator are single `match` dispatches over every grammar
+# rule / expression variant. Splitting them to satisfy a line count would
+# scatter one decision table across several functions.
+too_many_lines = "allow"
+
 [dependencies]
 anyhow = "1.0"
 clap = { version = "4.0", features = ["derive"] }
