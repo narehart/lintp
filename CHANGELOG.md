@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.2 (2026-08-24)
+
+## What's Changed
+* ci: enforce coverage, similarity and supply-chain gates by @narehart in https://github.com/narehart/lintp/pull/75
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.8.1...v0.8.2
+
 ## 0.8.1 (2026-07-06)
 
 ## What's Changed
