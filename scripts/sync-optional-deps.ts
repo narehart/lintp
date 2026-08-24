@@ -23,8 +23,14 @@ const PLATFORM_PACKAGES = [
   "lintp-win32-x64",
 ];
 
-export function syncOptionalDeps(): void {
-  const packagePath = path.join(__dirname, "..", "package.json");
+/**
+ * `rootDir` defaults to the repo root and exists so tests can drive this
+ * against a temporary directory instead of rewriting the real package.json.
+ */
+export function syncOptionalDeps(
+  rootDir: string = path.join(__dirname, "..")
+): void {
+  const packagePath = path.join(rootDir, "package.json");
   const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8")) as {
     version: string;
     optionalDependencies?: Record<string, string>;
