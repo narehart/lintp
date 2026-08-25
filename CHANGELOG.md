@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.4 (2026-08-25)
+
+## What's Changed
+* chore(deps): take all pending dependency updates by @narehart in https://github.com/narehart/lintp/pull/92
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.8.3...v0.8.4
+
 ## 0.8.3 (2026-08-25)
 
 ## What's Changed
