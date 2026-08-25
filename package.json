@@ -86,7 +86,7 @@
   ],
   "//": "optionalDependencies (platform binary packages) are injected at publish time by scripts/sync-optional-deps.ts",
   "devDependencies": {
-    "@commitlint/cli": "^19.8.1",
+    "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^19.8.1",
     "@commitlint/types": "^19.8.1",
     "@eslint/js": "^9.30.0",
