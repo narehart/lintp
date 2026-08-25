@@ -77,7 +77,7 @@ walkdir = "2.3"
 regex = "1.7"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
-colored = "2.0"
+colored = "3.1"
 thiserror = "2.0"
 
 [dev-dependencies]
