@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.3 (2026-08-25)
+
+## What's Changed
+* ci: exempt dependabot commits from commitlint by @narehart in https://github.com/narehart/lintp/pull/90
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.8.2...v0.8.3
+
 ## 0.8.2 (2026-08-24)
 
 ## What's Changed
