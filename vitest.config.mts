@@ -14,7 +14,7 @@ export default defineConfig({
         "src/**/*.test.ts",
         "src/**/*.spec.ts",
         "**/*.config.ts",
-        "**/vitest.config.ts",
+        "**/vitest.config.mts",
         "**/commitlint.config.ts",
       ],
       // The gate for the TypeScript half, enforced by vitest itself. The Rust

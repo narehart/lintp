@@ -168,7 +168,7 @@
       "files": [
         "src/**/*.ts",
         "scripts/**/*.ts",
-        "vitest.config.ts"
+        "vitest.config.mts"
       ],
       "dependencies": [
         "build:ts"
@@ -193,7 +193,7 @@
       "files": [
         "src/**/*.ts",
         "scripts/**/*.ts",
-        "vitest.config.ts"
+        "vitest.config.mts"
       ],
       "output": [
         "coverage/**"
@@ -259,7 +259,7 @@
     "format:ts": {
       "command": "prettier --write .",
       "files": [
-        "**/*.{ts,js,json,md,yml,yaml}",
+        "**/*.{ts,mts,js,mjs,json,md,yml,yaml}",
         "!dist/**",
         "!target/**",
         "!node_modules/**",
@@ -282,7 +282,7 @@
     "format:ts:check": {
       "command": "prettier --check .",
       "files": [
-        "**/*.{ts,js,json,md,yml,yaml}",
+        "**/*.{ts,mts,js,mjs,json,md,yml,yaml}",
         "!dist/**",
         "!target/**",
         "!node_modules/**",
@@ -305,7 +305,7 @@
     "lint:ts": {
       "command": "eslint . --max-warnings 0",
       "files": [
-        "**/*.{ts,js}",
+        "**/*.{ts,mts,js,mjs}",
         "!dist/**",
         "!target/**",
         "!node_modules/**",
@@ -336,7 +336,7 @@
     "lint:fix:ts": {
       "command": "eslint . --fix",
       "files": [
-        "**/*.{ts,js}",
+        "**/*.{ts,mts,js,mjs}",
         "!dist/**",
         "!target/**",
         "!node_modules/**",
