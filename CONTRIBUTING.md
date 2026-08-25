@@ -3,7 +3,13 @@
 ## Local setup
 
 Node.js and Rust versions are pinned in `.tool-versions`; `asdf install` picks
-them up. The coverage gate additionally needs tarpaulin:
+them up. That Rust version (1.86) is the floor for _working on_ lintp, because
+criterion needs it to build the benchmarks. It is not the crate's MSRV:
+`rust-version` in `Cargo.toml` stays at 1.85 and the MSRV job checks the lib
+and bin against it, since nobody installing lintp ever builds its
+dev-dependencies.
+
+The coverage gate additionally needs tarpaulin:
 
 ```bash
 asdf install
