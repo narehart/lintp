@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.5 (2026-08-25)
+
+## What's Changed
+* build: load the vitest config as esm by @narehart in https://github.com/narehart/lintp/pull/94
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.8.4...v0.8.5
+
 ## 0.8.4 (2026-08-25)
 
 ## What's Changed
