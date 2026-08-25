@@ -34,8 +34,11 @@ lintp:
     .test.ts:
       rule: "kebab-test"
       message: "TypeScript tests are <name>.test.ts, named after the kebab-case file they test"
+    .config.mts:
+      rule: 'root && $NAME == "vitest.config.mts"'
+      message: "The only root .mts is vitest.config.mts, which must be ESM-loaded"
     .config.ts:
-      rule: "root" # tool-mandated names (vitest.config.ts, commitlint.config.ts) live at the root
+      rule: "root" # tool-mandated names (commitlint.config.ts) live at the root
     .ts:
       rule: "kebab-case && !root"
       message: "TypeScript files are kebab-case and live in src/ or scripts/, not the repo root"
