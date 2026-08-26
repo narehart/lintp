@@ -9,12 +9,13 @@ criterion needs it to build the benchmarks. It is not the crate's MSRV:
 and bin against it, since nobody installing lintp ever builds its
 dev-dependencies.
 
-The coverage gate additionally needs tarpaulin:
+The coverage gate additionally needs cargo-llvm-cov:
 
 ```bash
 asdf install
 npm ci
-cargo install cargo-tarpaulin   # required by npm run coverage and the pre-push hook
+cargo install cargo-llvm-cov    # required by npm run coverage and the pre-push hook
+rustup component add llvm-tools-preview
 ```
 
 ## Quality gates
@@ -22,16 +23,25 @@ cargo install cargo-tarpaulin   # required by npm run coverage and the pre-push 
 Each language is gated by its own toolchain, so the same command fails the
 same way locally and in CI:
 
-| Command                | What it enforces                                                                     |
-| ---------------------- | ------------------------------------------------------------------------------------ |
-| `npm run check`        | `tsc --noEmit` and `cargo check`                                                     |
-| `npm run lint`         | `eslint --max-warnings 0` and `cargo clippy --all-targets -D warnings`               |
-| `npm run format:check` | `prettier --check` and `cargo fmt --check`                                           |
-| `npm test`             | vitest and `cargo test`                                                              |
-| `npm run coverage`     | vitest thresholds (`vitest.config.ts`) and tarpaulin `fail-under` (`tarpaulin.toml`) |
+| Command                | What it enforces                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| `npm run check`        | `tsc --noEmit` and `cargo check`                                                          |
+| `npm run lint`         | `eslint --max-warnings 0` and `cargo clippy --all-targets -D warnings`                    |
+| `npm run format:check` | `prettier --check` and `cargo fmt --check`                                                |
+| `npm test`             | vitest and `cargo test`                                                                   |
+| `npm run coverage`     | vitest thresholds (`vitest.config.mts`) and `cargo llvm-cov --fail-under-lines`, both 90% |
 
-Coverage thresholds live with the tool that enforces them — raise the
-TypeScript gate in `vitest.config.ts`, the Rust gate in `tarpaulin.toml`.
+Coverage thresholds live with the tool that enforces them — the TypeScript
+gate in `vitest.config.mts`, the Rust gate in the `coverage:rust` command in
+`package.json`. Both are 90%.
+
+Rust coverage uses cargo-llvm-cov rather than tarpaulin: tarpaulin
+under-reported this codebase by around eight points, recording zero hits on
+lines that run on every call.
+
+The only coverage exclusions are the `require.main === module` entry guards,
+marked with `v8 ignore` comments — they run on every real invocation but can
+never be true under the test runner.
 
 Clippy runs at the `pedantic` tier and the library denies `missing_docs`: a
 new public item needs a doc comment, because the crate renders on docs.rs.

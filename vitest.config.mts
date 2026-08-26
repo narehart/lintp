@@ -18,14 +18,17 @@ export default defineConfig({
         "**/commitlint.config.ts",
       ],
       // The gate for the TypeScript half, enforced by vitest itself. The Rust
-      // half is gated the equivalent way, by fail-under in tarpaulin.toml.
-      // Branches and functions sit lower than lines because the npm
-      // launcher's platform-detection paths can't all run on one host.
+      // half is gated the equivalent way, by --fail-under-lines in the
+      // coverage:rust task.
+      //
+      // The CLI entry guards (`require.main === module`) carry v8-ignore
+      // comments: they run on every real invocation but can never be true
+      // under the test runner, so counting them only dilutes the number.
       thresholds: {
-        lines: 70,
-        statements: 70,
-        functions: 60,
-        branches: 60,
+        lines: 90,
+        statements: 90,
+        functions: 90,
+        branches: 90,
       },
     },
   },

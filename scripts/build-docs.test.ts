@@ -11,6 +11,7 @@ import {
   rewriteLinks,
   slugify,
   toComponents,
+  tocTree,
 } from "./build-docs";
 
 describe("build-docs", () => {
@@ -251,5 +252,64 @@ describe("build-docs", () => {
       expect(html).toContain('class="cbody"');
       expect(html).not.toContain("<pre><code");
     });
+  });
+});
+
+describe("branch coverage for rendering fallbacks", () => {
+  it("falls back to a slugified filename for an unknown doc link", () => {
+    // A link to a doc that is not in MD_PAGES still has to resolve to
+    // something, rather than being emitted as a dead .md link.
+    const out = rewriteLinks("see [notes](SOME_OTHER_DOC.md)");
+    expect(out).toContain("some-other-doc.html");
+    expect(out).not.toContain(".md");
+  });
+
+  it("labels a fence with its title when one is given", () => {
+    const { html } = toComponents(
+      '```ts title="the bar text"\nconst a = 1;\n```'
+    );
+    expect(html).toContain("the bar text");
+  });
+
+  it("labels a fence with its language when no title is given", () => {
+    const { html } = toComponents("```yaml\nkey: value\n```");
+    expect(html).toContain("yaml");
+  });
+
+  it("labels a bare fence as code", () => {
+    const { html } = toComponents("```\nplain\n```");
+    expect(html).toContain("code");
+  });
+
+  it("omits the table of contents for a page with one section", () => {
+    expect(tocTree("page", [{ name: "only", slug: "only", note: "" }])).toBe(
+      ""
+    );
+  });
+
+  it("renders a table of contents once there are several sections", () => {
+    const toc = tocTree("page", [
+      { name: "first", slug: "first", note: "a" },
+      { name: "second", slug: "second", note: "b" },
+    ]);
+    expect(toc).toContain("first");
+    expect(toc).toContain("second");
+  });
+
+  it("returns an empty first paragraph when the document has none", () => {
+    expect(firstParagraph("# Heading only\n")).toBe("");
+  });
+
+  it("promotes the first paragraph to the intro when there is no sub note", () => {
+    const { md, sub } = preprocess("# Title\n\nThe opening paragraph.\n");
+    expect(sub).toBeUndefined();
+    expect(md).toContain("The opening paragraph.");
+  });
+
+  it("keeps the sub note as the intro when one is present", () => {
+    const { sub } = preprocess(
+      "# Title\n\n<!-- site:sub The stated intro. -->\n\nBody text.\n"
+    );
+    expect(sub).toBe("The stated intro.");
   });
 });
