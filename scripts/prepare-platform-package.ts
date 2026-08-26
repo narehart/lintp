@@ -143,6 +143,8 @@ export function getKnownTargets(): string[] {
   return Object.keys(TARGETS);
 }
 
+/* v8 ignore start -- CLI entry point: runs on every real invocation,
+   but `require.main === module` is never true under the test runner. */
 if (require.main === module) {
   const targetIndex = process.argv.indexOf("--target");
   const target = targetIndex >= 0 ? process.argv[targetIndex + 1] : undefined;
@@ -157,3 +159,5 @@ if (require.main === module) {
   const packageDir = preparePlatformPackage(target);
   console.log(`Platform package ready: ${packageDir}`);
 }
+
+/* v8 ignore stop */

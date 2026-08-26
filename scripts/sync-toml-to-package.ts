@@ -76,8 +76,12 @@ function syncTomlToPackageJson(): {
 }
 
 // Run if called directly
+/* v8 ignore start -- CLI entry point: runs on every real invocation,
+   but `require.main === module` is never true under the test runner. */
 if (require.main === module) {
   syncTomlToPackageJson();
 }
 
 export { syncTomlToPackageJson };
+
+/* v8 ignore stop */

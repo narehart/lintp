@@ -27,7 +27,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Run tests with the coverage gates (wireit caches, so an unchanged tree is
-# near-instant). Needs cargo-tarpaulin: cargo install cargo-tarpaulin
+# near-instant). Needs cargo-llvm-cov: cargo install cargo-llvm-cov
 echo "Running tests and coverage gates..."
 npm run coverage
 if [ $? -ne 0 ]; then

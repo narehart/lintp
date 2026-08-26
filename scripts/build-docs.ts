@@ -424,6 +424,8 @@ export function buildDocs(outDir: string): string[] {
   return written;
 }
 
+/* v8 ignore start -- CLI entry point: runs on every real invocation,
+   but `require.main === module` is never true under the test runner. */
 if (require.main === module) {
   const outIndex = process.argv.indexOf("--out");
   const outDir =
@@ -435,3 +437,5 @@ if (require.main === module) {
   console.log(`Built ${written.length} entries into ${outDir}:`);
   written.forEach((entry) => console.log(`  ${entry}`));
 }
+
+/* v8 ignore stop */

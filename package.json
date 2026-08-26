@@ -203,16 +203,15 @@
       ]
     },
     "coverage:rust": {
-      "command": "cargo tarpaulin",
+      "command": "cargo llvm-cov --fail-under-lines 90 --html --output-dir target/llvm-cov",
       "files": [
         "src/**/*.rs",
         "tests/**/*.rs",
         "Cargo.toml",
-        "Cargo.lock",
-        "tarpaulin.toml"
+        "Cargo.lock"
       ],
       "output": [
-        "target/tarpaulin/**"
+        "target/llvm-cov/**"
       ]
     },
     "docs:build": {
