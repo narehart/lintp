@@ -56,30 +56,6 @@ pub struct RuleConfig {
     pub path_rules: HashMap<String, HashMap<String, RuleEntry>>,
 }
 
-/// Rule keys are extension patterns and must start with '.'; anything else
-/// would never match a file (the rule-key lookup filters on the leading dot)
-/// and so would be silently inert — the classic case being a path scope
-/// mis-indented so its 'rule:' key turns the whole scope into a rule entry.
-fn validate_rule_key<E: serde::de::Error>(key: &str, scope: Option<&str>) -> Result<(), E> {
-    if key.starts_with('.') {
-        return Ok(());
-    }
-    let location = match scope {
-        Some(path) => format!(" under path scope '{path}'"),
-        None => String::new(),
-    };
-    let hint = if key.contains('/') || key.contains('*') {
-        format!(
-            " — if '{key}' is meant to scope rules to a path, nest extension rules under it (e.g. \"{key}\": {{ .js: ... }})"
-        )
-    } else {
-        String::new()
-    };
-    Err(E::custom(format!(
-        "Invalid rule key '{key}'{location}: rule keys are extension patterns starting with '.' (.js, .test.ts, .dir, .*){hint}"
-    )))
-}
-
 /// Expand glob-style brace alternation: `.{png,jpg}` → `[".png", ".jpg"]`,
 /// `src/{a,b}/*` → `["src/a/*", "src/b/*"]`. Multiple groups expand as a
 /// cartesian product; nesting is not supported. Returns the input
@@ -118,13 +94,37 @@ fn expand_braces<E: serde::de::Error>(key: &str) -> Result<Vec<String>, E> {
 }
 
 /// A rule key may group suffixes with brace alternation
-/// (".{png,jpg}: camelCase"); each expansion gets the same rule entry
-/// and is validated like a standalone key.
+/// (".{png,jpg}: camelCase"); each expansion gets the same rule entry.
+///
+/// Every expansion must be an extension pattern starting with '.'; anything
+/// else would never match a file (the rule-key lookup filters on the leading
+/// dot) and so would be silently inert — the classic case being a path scope
+/// mis-indented so its 'rule:' key turns the whole scope into a rule entry.
 fn expand_rule_keys<E: serde::de::Error>(key: &str, scope: Option<&str>) -> Result<Vec<String>, E> {
     let parts = expand_braces::<E>(key)?;
+
     for part in &parts {
-        validate_rule_key::<E>(part, scope)?;
+        if part.starts_with('.') {
+            continue;
+        }
+
+        let location = match scope {
+            Some(path) => format!(" under path scope '{path}'"),
+            None => String::new(),
+        };
+        let hint = if part.contains('/') || part.contains('*') {
+            format!(
+                " — if '{part}' is meant to scope rules to a path, nest extension rules under it (e.g. \"{part}\": {{ .js: ... }})"
+            )
+        } else {
+            String::new()
+        };
+
+        return Err(E::custom(format!(
+            "Invalid rule key '{part}'{location}: rule keys are extension patterns starting with '.' (.js, .test.ts, .dir, .*){hint}"
+        )));
     }
+
     Ok(parts)
 }
 

@@ -175,9 +175,14 @@ jobs:
       - name: Run tests
         run: npm test
 
-  # The coverage gates themselves live with each toolchain — thresholds in
-  # vitest.config.ts, fail-under in tarpaulin.toml — so this job just runs
-  # them and lets them fail on their own.
+  # The coverage gates live with each toolchain — thresholds in
+  # vitest.config.mts, --fail-under-lines in the coverage:rust task — so this
+  # job just runs them and lets them fail on their own.
+  #
+  # Rust coverage is measured with cargo-llvm-cov (LLVM source-based
+  # instrumentation) rather than tarpaulin, which under-reported this
+  # codebase by roughly eight points: it recorded zero hits on lines that run
+  # on every single call.
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
@@ -185,19 +190,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install asdf
-        uses: asdf-vm/actions/install@b7bcd026f18772e44fe1026d729e1611cc435d47 # v4.0.1
+      - name: Read pinned toolchain version
+        id: versions
+        run: echo "rust=$(awk '/^rust /{print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
 
-      - name: Setup Wireit cache
-        uses: google/wireit@9d7c2e5346f8ef1b1ab6014c4e96c74e234f7ed5 # setup-github-actions-caching/v2
+      - name: Install Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: ".tool-versions"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          toolchain: ${{ steps.versions.outputs.rust }}
+          components: llvm-tools-preview
 
       - name: Cache cargo build
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: Install cargo-tarpaulin
+      - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@6cd13508893c0e7eab5f273c2575d3859bd7229a # v2.86.6
         with:
-          tool: cargo-tarpaulin
+          tool: cargo-llvm-cov
 
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit || npm ci --prefer-offline --no-audit
@@ -283,12 +297,10 @@ jobs:
       - name: Check TypeScript for duplicate logic
         run: similarity-ts --min-lines 5 --fail-on-duplicates src scripts
 
-      # Runs similarity-rs at full sensitivity and fails on any pair that is
-      # not in the reviewed baseline. Raising the threshold instead would not
-      # work: two functions differing only in prefix/suffix score 91.78%, so a
-      # gate set above the known pairs would wave real copy-paste through.
+      # Both halves are clean at the tool's own default threshold, so there
+      # is no baseline and no tuned number: any new duplicate logic fails.
       - name: Check Rust for duplicate logic
-        run: ./scripts/check-similarity.sh
+        run: similarity-rs --min-lines 5 --fail-on-duplicates src
 
   # The crate renders on docs.rs; a broken intra-doc link or a malformed doc
   # example only shows up there, after publish, unless it is checked here.
@@ -328,3 +340,6 @@ jobs:
       # deliberate — every release immediately checks itself here.
       - name: Lint file structure with lintp
         run: npx --yes lintp-cli@latest
+
+      - name: Check file sizes
+        run: ./scripts/check-file-size.sh

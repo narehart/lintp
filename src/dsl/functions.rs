@@ -7,27 +7,12 @@ use crate::dsl::evaluator::{EvaluationContext, Value};
 use crate::dsl::parser::parse_expression_impl;
 use crate::util::forward_slashes;
 
-/// Entry point for the collection functions (any/all/map/filter), whose
-/// lambda argument arrives unevaluated so `$item` can be bound per element.
+/// Applies a collection function (any/all/map/filter), whose lambda argument
+/// arrives unevaluated so `$item` can be bound per element.
 ///
-/// # Errors
-///
-/// Returns [`crate::Error::Dsl`] if `collection` is not a list, `name` is
-/// not a recognized lambda function, or the lambda fails to parse or
-/// evaluate for one of the collection's items.
-pub fn call_lambda_function(
-    name: &str,
-    collection: &Value,
-    lambda: &Expression,
-    context: &EvaluationContext,
-) -> std::result::Result<Value, crate::Error> {
-    into_dsl_error(call_lambda_function_impl(name, collection, lambda, context))
-}
-
-/// Implementation behind [`call_lambda_function`]; kept separate (and
-/// anyhow-based) because it's mutually recursive with `dsl::evaluator`,
-/// where the surrounding `anyhow::Context` chaining is more convenient than
-/// converting back and forth through [`crate::Error`] on every call.
+/// anyhow-based and crate-internal because it is mutually recursive with
+/// `dsl::evaluator`, where `anyhow::Context` chaining is more convenient than
+/// converting through [`crate::Error`] on every call.
 pub(crate) fn call_lambda_function_impl(
     name: &str,
     collection: &Value,
@@ -145,20 +130,6 @@ fn string_arg<'a>(args: &'a [Value], index: usize, message: &str) -> Result<&'a 
     }
 }
 
-/// Glob `pattern` under `base` and return the matching file names.
-fn glob_in(base: &Path, pattern: &str, context: &EvaluationContext) -> Result<Value> {
-    let glob_pattern = forward_slashes(&format!("{}/{}", base.display(), pattern));
-
-    Ok(Value::List(
-        glob_paths(&glob_pattern, context)?
-            .iter()
-            .filter_map(|path| path.file_name())
-            .filter_map(|name| name.to_str())
-            .map(|name| Value::String(name.to_string()))
-            .collect(),
-    ))
-}
-
 /// Every two-argument built-in has the same skeleton — check the arity, match
 /// the argument types, apply the operation — and differs only in the middle
 /// step. `apply` returns `None` when the arguments are the wrong types (the
@@ -173,20 +144,6 @@ fn binary_function(
     expect_args(name, args, 2)?;
 
     apply(&args[0], &args[1]).unwrap_or_else(|| Err(anyhow::anyhow!("{type_error}")))
-}
-
-/// The subset of [`binary_function`] whose operation is a `str` predicate that
-/// cannot itself fail.
-fn string_predicate(
-    name: &str,
-    args: &[Value],
-    type_error: &str,
-    predicate: impl Fn(&str, &str) -> bool,
-) -> Result<Value> {
-    binary_function(name, args, type_error, |a, b| match (a, b) {
-        (Value::String(a), Value::String(b)) => Some(Ok(Value::Boolean(predicate(a, b)))),
-        _ => None,
-    })
 }
 
 /// Dispatches a built-in function call (`matches`, `exists`, `count`, ...)
@@ -254,20 +211,77 @@ pub(crate) fn call_function_impl(
             },
         ),
         "contains" => contains_function(args),
-        "startsWith" => string_predicate(
+        "startsWith" => binary_function(
             name,
             args,
             "startsWith() requires string arguments",
-            |s, prefix| s.starts_with(prefix),
+            |value, affix| match (value, affix) {
+                (Value::String(s), Value::String(affix)) => {
+                    Some(Ok(Value::Boolean(s.starts_with(affix))))
+                }
+                _ => None,
+            },
         ),
-        "endsWith" => string_predicate(
+        "endsWith" => binary_function(
             name,
             args,
             "endsWith() requires string arguments",
-            |s, suffix| s.ends_with(suffix),
+            |value, affix| match (value, affix) {
+                (Value::String(s), Value::String(affix)) => {
+                    Some(Ok(Value::Boolean(s.ends_with(affix))))
+                }
+                _ => None,
+            },
         ),
         "exists" => exists_function(args, context),
-        "siblings" | "children" | "find" => glob_function(name, args, context),
+        // siblings/children/find differ only in the directory they glob from
+        "siblings" | "children" | "find" => {
+            let (base, pattern) = match name {
+                "siblings" => {
+                    expect_args(name, args, 1)?;
+                    (
+                        context
+                            .path
+                            .parent()
+                            .unwrap_or(Path::new("."))
+                            .to_path_buf(),
+                        string_arg(args, 0, "siblings() argument must be a string pattern")?,
+                    )
+                }
+                "children" => {
+                    expect_args(name, args, 1)?;
+                    let pattern =
+                        string_arg(args, 0, "children() argument must be a string pattern")?;
+
+                    // A file has no children; only directories can match
+                    if !context.path.is_dir() {
+                        return Ok(Value::List(Vec::new()));
+                    }
+                    (context.path.to_path_buf(), pattern)
+                }
+                _ => {
+                    expect_args(name, args, 2)?;
+                    (
+                        PathBuf::from(string_arg(
+                            args,
+                            0,
+                            "find() first argument must be a directory path",
+                        )?),
+                        string_arg(args, 1, "find() second argument must be a string pattern")?,
+                    )
+                }
+            };
+
+            let glob_pattern = forward_slashes(&format!("{}/{}", base.display(), pattern));
+            Ok(Value::List(
+                glob_paths(&glob_pattern, context)?
+                    .iter()
+                    .filter_map(|path| path.file_name())
+                    .filter_map(|name| name.to_str())
+                    .map(|name| Value::String(name.to_string()))
+                    .collect(),
+            ))
+        }
         "any" | "all" | "map" | "filter" => string_lambda_function(name, args, context),
         "count" => count_function(args),
         _ => Err(anyhow::anyhow!("Unknown function: {name}")),
@@ -317,44 +331,6 @@ fn exists_function(args: &[Value], context: &EvaluationContext) -> Result<Value>
     Ok(Value::Boolean(count >= min && count <= max))
 }
 
-/// `siblings()`, `children()` and `find()` all glob a pattern under some
-/// directory and differ only in which directory that is, so they share one
-/// implementation rather than three near-identical ones.
-fn glob_function(name: &str, args: &[Value], context: &EvaluationContext) -> Result<Value> {
-    match name {
-        "siblings" => {
-            expect_args(name, args, 1)?;
-            let pattern = string_arg(args, 0, "siblings() argument must be a string pattern")?;
-            glob_in(
-                context.path.parent().unwrap_or(Path::new(".")),
-                pattern,
-                context,
-            )
-        }
-        "children" => {
-            expect_args(name, args, 1)?;
-            let pattern = string_arg(args, 0, "children() argument must be a string pattern")?;
-
-            // A file has no children; only directories can match
-            if context.path.is_dir() {
-                glob_in(context.path, pattern, context)
-            } else {
-                Ok(Value::List(Vec::new()))
-            }
-        }
-        _ => {
-            expect_args(name, args, 2)?;
-            let dir = PathBuf::from(string_arg(
-                args,
-                0,
-                "find() first argument must be a directory path",
-            )?);
-            let pattern = string_arg(args, 1, "find() second argument must be a string pattern")?;
-            glob_in(&dir, pattern, context)
-        }
-    }
-}
-
 /// Back-compat shim: a lambda that arrives as an already-evaluated string
 /// value (e.g. from a string template) is parsed and delegated.
 fn string_lambda_function(
@@ -380,9 +356,9 @@ fn string_lambda_function(
     call_lambda_function_impl(name, &args[0], &expr, context)
 }
 
-/// `contains()` is [`string_predicate`] plus one extra steer: reaching for it
-/// on a list is the natural mistake, and it deserves a better error than the
-/// generic type message.
+/// `contains()` is the same string test as the others plus one extra steer:
+/// reaching for it on a list is the natural mistake, and it deserves a better
+/// error than the generic type message.
 fn contains_function(args: &[Value]) -> Result<Value> {
     if let Some(Value::List(_)) = args.first() {
         return Err(anyhow::anyhow!(
@@ -390,11 +366,16 @@ fn contains_function(args: &[Value]) -> Result<Value> {
         ));
     }
 
-    string_predicate(
+    binary_function(
         "contains",
         args,
         "contains() requires string haystack and substring arguments",
-        |haystack, needle| haystack.contains(needle),
+        |haystack, needle| match (haystack, needle) {
+            (Value::String(haystack), Value::String(needle)) => {
+                Some(Ok(Value::Boolean(haystack.contains(needle))))
+            }
+            _ => None,
+        },
     )
 }
 
