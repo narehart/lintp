@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0 (2026-08-26)
+
+## What's Changed
+* feat!: report only failures by default and add --format json by @narehart in https://github.com/narehart/lintp/pull/98
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.9.0...v0.10.0
+
 ## 0.9.0 (2026-08-26)
 
 ## What's Changed
