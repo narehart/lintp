@@ -7,6 +7,9 @@ use std::path::PathBuf;
 
 use lintp::{config, lint};
 
+mod report;
+use report::Format;
+
 #[derive(Parser)]
 #[command(
     author,
@@ -23,9 +26,13 @@ struct Cli {
     #[arg(value_name = "DIR", default_value = ".")]
     dir: PathBuf,
 
-    /// Verbose output
+    /// Show passing files as well as failures
     #[arg(short, long)]
     verbose: bool,
+
+    /// Output format
+    #[arg(long, value_enum, default_value = "human")]
+    format: Format,
 }
 
 fn main() -> Result<()> {
@@ -44,48 +51,20 @@ fn main() -> Result<()> {
     };
 
     let config = config::load_config(&config_path)?;
-    let results = lint::run_lint(&cli.dir, &config, cli.verbose)?;
-    let success = report_results(&results);
+    // Not cli.verbose: run_lint's own verbose flag prints "Checking: <path>"
+    // to stdout, which would sit in front of the JSON document and break any
+    // consumer parsing it. Verbosity is a reporting concern, and the ✓ lines
+    // below already say every path that was checked.
+    let results = lint::run_lint(&cli.dir, &config, false)?;
+
+    // Locked once rather than per line: a large --verbose run is thousands of
+    // writes, and stdout's lock is re-acquired on every one otherwise.
+    let stdout = std::io::stdout();
+    let success = report::write_report(&mut stdout.lock(), &results, cli.format, cli.verbose)?;
 
     if !success {
         std::process::exit(1);
     }
 
     Ok(())
-}
-
-fn report_results(results: &[lint::LintResult]) -> bool {
-    use colored::Colorize;
-
-    let mut success = true;
-
-    for result in results {
-        match result {
-            lint::LintResult::Success(path) => {
-                println!("{} {}", "✓".green(), path.display());
-            }
-            lint::LintResult::Failure {
-                path,
-                rule,
-                message,
-            } => {
-                success = false;
-                println!("{} {} - {} - {}", "✗".red(), path.display(), rule, message);
-            }
-        }
-    }
-
-    if success {
-        println!(
-            "{}",
-            "All files and directories match the configured rules.".green()
-        );
-    } else {
-        println!(
-            "{}",
-            "Some files or directories do not match the configured rules.".red()
-        );
-    }
-
-    success
 }

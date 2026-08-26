@@ -77,11 +77,13 @@ walkdir = "2.3"
 regex = "1.7"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
+serde_json = "1.0"
 colored = "3.1"
 thiserror = "2.0"
 
 [dev-dependencies]
 tempfile = "3.3"
+serde_json = "1.0"
 criterion = "0.8"
 
 [[bench]]

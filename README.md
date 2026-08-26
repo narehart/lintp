@@ -89,15 +89,11 @@ Run it. Every file and directory is checked against the longest-matching suffix 
 
 ```text title="shell — first run"
 $ lintp
-✓ ./lintp.yml
-✓ ./tests
-✓ ./tests/user-tests.js
-✓ ./src
 ✗ ./src/badFile.js - .js - Does not match rule: kebab-case && js-file (failed: kebab-case)
-✓ ./src/UserManager.ts
-✓ ./src/utils.js
 Some files or directories do not match the configured rules.
 ```
+
+Only failures are printed. Pass `--verbose` to see every path that was checked.
 
 Rules combine **variables** ($NAME, $EXT…), **operators** (&&, ||, !, ==…), **functions** (matches, contains, startsWith…) and **collections** (siblings, children, find). The complete language lives in the [dsl-reference](docs/DSL_REFERENCE.md); reusable recipes in [common-patterns](docs/COMMON_PATTERNS.md).
 
@@ -222,10 +218,36 @@ The built-in functions (full documentation with examples in the [DSL Reference](
 lintp                          # lint cwd with ./lintp.yml
 lintp /path/to/project         # lint a specific directory
 lintp --config custom.yml      # custom config file
-lintp --verbose                # show every file checked
+lintp --verbose                # also list every file that passed
+lintp --format json            # machine-readable output
 ```
 
-Exit code `0` when everything passes, `1` on any violation or configuration error — a one-line CI gate. When a rule is a chain of `&&` conditions, the failing condition(s) are listed in the `(failed: …)` suffix so you don't have to bisect composed rules by hand.
+Exit code `0` when everything passes, `1` on any violation or configuration error — a one-line CI gate.
+
+### JSON output
+
+`--format json` writes a single JSON document to stdout and nothing else, so
+it can be piped straight into a parser. `summary` always describes the whole
+run; `results` lists the failures, plus the passing paths when `--verbose` is
+given.
+
+```json title="shell — lintp --format json"
+{
+  "summary": { "checked": 128, "passed": 127, "failed": 1 },
+  "results": [
+    {
+      "status": "failure",
+      "path": "./src/badFile.js",
+      "rule": ".js",
+      "message": "Does not match rule: kebab-case (failed: kebab-case)"
+    }
+  ]
+}
+```
+
+Paths use forward slashes on every platform. A configuration error still
+reports on stderr and exits `1`, leaving stdout empty rather than emitting a
+partial document. When a rule is a chain of `&&` conditions, the failing condition(s) are listed in the `(failed: …)` suffix so you don't have to bisect composed rules by hand.
 
 **Symlinks:** lintp does not follow symlinks. A symlinked directory's name IS checked against `.dir` rules, but its contents are not traversed.
 

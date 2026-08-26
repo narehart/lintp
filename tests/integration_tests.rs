@@ -222,7 +222,7 @@ fn test_with_custom_config_path() -> Result<()> {
     Ok(())
 }
 
-/// Integration test with verbose output
+/// Verbose lists every path checked, not just the failures.
 #[test]
 fn test_with_verbose_output() -> Result<()> {
     let test_project = create_test_project()?;
@@ -234,24 +234,113 @@ fn test_with_verbose_output() -> Result<()> {
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let checked = stdout.lines().filter(|line| line.contains('✓')).count();
 
-    // Check that the output contains "Checking" lines
     assert!(
-        stdout.contains("Checking:"),
-        "Should have verbose output with 'Checking' lines"
+        checked >= 10,
+        "should list every checked path, found {checked}:\n{stdout}"
     );
 
-    // Count the number of "Checking" lines
-    let checking_count = stdout
-        .lines()
-        .filter(|line| line.contains("Checking:"))
-        .count();
+    Ok(())
+}
 
-    // Should be checking at least 10 items (including directories and files)
+/// The default output is failures only: a clean run on a large project should
+/// print a single line, not one per file.
+#[test]
+fn test_default_output_lists_only_failures() -> Result<()> {
+    let test_project = create_test_project_with_errors()?;
+    let binary_path = PathBuf::from(env!("CARGO_BIN_EXE_lintp"));
+
+    let output = Command::new(&binary_path)
+        .current_dir(&test_project.root_path)
+        .output()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+
     assert!(
-        checking_count >= 10,
-        "Should check at least 10 items, found {checking_count}"
+        !stdout.contains('✓'),
+        "passing paths should be hidden by default:\n{stdout}"
     );
+    assert!(stdout.contains("INVALID-CASE.js"), "got:\n{stdout}");
+
+    Ok(())
+}
+
+/// A clean run says so in one line rather than listing the whole tree.
+#[test]
+fn test_clean_run_prints_one_line() -> Result<()> {
+    let test_project = create_test_project()?;
+    let binary_path = PathBuf::from(env!("CARGO_BIN_EXE_lintp"));
+
+    let output = Command::new(&binary_path)
+        .current_dir(&test_project.root_path)
+        .output()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    assert_eq!(
+        stdout.lines().count(),
+        1,
+        "expected a single summary line, got:\n{stdout}"
+    );
+
+    Ok(())
+}
+
+/// The JSON document has to be the only thing on stdout, or a consumer
+/// piping it into a parser gets a syntax error.
+#[test]
+fn test_json_output_is_parseable() -> Result<()> {
+    let test_project = create_test_project_with_errors()?;
+    let binary_path = PathBuf::from(env!("CARGO_BIN_EXE_lintp"));
+
+    for args in [
+        vec!["--format", "json"],
+        vec!["--format", "json", "--verbose"],
+    ] {
+        let output = Command::new(&binary_path)
+            .current_dir(&test_project.root_path)
+            .args(&args)
+            .output()?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let parsed: serde_json::Value = serde_json::from_str(&stdout)
+            .unwrap_or_else(|e| panic!("{args:?} did not produce JSON: {e}\n{stdout}"));
+
+        let summary = &parsed["summary"];
+        assert!(summary["checked"].as_u64().expect("checked") > 0);
+        assert!(summary["failed"].as_u64().expect("failed") > 0);
+
+        let reported = parsed["results"].as_array().expect("results array");
+        assert!(reported.iter().any(|r| r["status"] == "failure"));
+    }
+
+    Ok(())
+}
+
+/// Exit code is the CI contract and must not depend on the format.
+#[test]
+fn test_exit_code_is_the_same_in_both_formats() -> Result<()> {
+    let clean = create_test_project()?;
+    let failing = create_test_project_with_errors()?;
+    let binary_path = PathBuf::from(env!("CARGO_BIN_EXE_lintp"));
+
+    for format in ["human", "json"] {
+        let ok = Command::new(&binary_path)
+            .current_dir(&clean.root_path)
+            .args(["--format", format])
+            .output()?;
+        assert!(ok.status.success(), "{format} should exit 0 on a clean run");
+
+        let bad = Command::new(&binary_path)
+            .current_dir(&failing.root_path)
+            .args(["--format", format])
+            .output()?;
+        assert_eq!(
+            bad.status.code(),
+            Some(1),
+            "{format} should exit 1 on a violation"
+        );
+    }
 
     Ok(())
 }
