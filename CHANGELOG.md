@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0 (2026-08-26)
+
+## What's Changed
+* test: raise coverage gates to 90% and remove all similarity exclusions by @narehart in https://github.com/narehart/lintp/pull/96
+
+
+**Full Changelog**: https://github.com/narehart/lintp/compare/v0.8.5...v0.9.0
+
 ## 0.8.5 (2026-08-25)
 
 ## What's Changed
