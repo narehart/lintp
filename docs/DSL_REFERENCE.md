@@ -469,7 +469,10 @@ With one argument, `min` defaults to `1` and `max` is unbounded, so
 `exists(pattern)` just checks that at least one match exists. Patterns are
 resolved relative to the entry being linted — the file's own directory, or
 the directory itself when the rule targets a directory — not the project
-root. Pass `min` and/or `max` to require an exact count or a range:
+root. The entry's own path is matched literally, so a directory whose name
+holds glob metacharacters — a Next.js dynamic route like `[postId]` — is a
+path segment, not a character class; only `pattern` is expanded. Pass `min`
+and/or `max` to require an exact count or a range:
 
 ```yaml
 exists("package.json")                      # A package.json in this entry's directory

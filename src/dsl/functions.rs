@@ -102,6 +102,19 @@ fn glob_paths(pattern: &str, context: &EvaluationContext) -> Result<Vec<PathBuf>
     Ok(paths)
 }
 
+/// Join a directory and a glob pattern, escaping the directory so that a
+/// segment holding glob metacharacters is matched literally instead of being
+/// parsed as a pattern. Next.js dynamic routes (`src/app/posts/[postId]`) are
+/// the everyday case: the brackets in the entry's own path are a character
+/// class to `glob`, so an unescaped base silently matches nothing.
+fn pattern_in_directory(base: &Path, pattern: &str) -> String {
+    format!(
+        "{}/{}",
+        forward_slashes(&Pattern::escape(&base.display().to_string())),
+        pattern
+    )
+}
+
 /// Flatten an internal anyhow error into the crate's public error type, which
 /// is all the two public entry points do beyond delegating.
 fn into_dsl_error(result: Result<Value>) -> std::result::Result<Value, crate::Error> {
@@ -272,7 +285,7 @@ pub(crate) fn call_function_impl(
                 }
             };
 
-            let glob_pattern = forward_slashes(&format!("{}/{}", base.display(), pattern));
+            let glob_pattern = pattern_in_directory(&base, pattern);
             Ok(Value::List(
                 glob_paths(&glob_pattern, context)?
                     .iter()
@@ -324,7 +337,7 @@ fn exists_function(args: &[Value], context: &EvaluationContext) -> Result<Value>
     };
 
     // Count matching files
-    let glob_pattern = forward_slashes(&format!("{}/{}", parent.display(), pattern));
+    let glob_pattern = pattern_in_directory(parent, pattern);
     let count = glob_paths(&glob_pattern, context)?.len();
 
     // Check if count is within range

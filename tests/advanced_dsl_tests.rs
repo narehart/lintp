@@ -137,6 +137,54 @@ fn test_exists_negative_min_max_errors() -> Result<()> {
     Ok(())
 }
 
+/// Next.js dynamic routes name directories with brackets (`[postId]`), which a
+/// glob reads as a character class. The file-system functions must take the
+/// entry's own path literally and treat only the pattern as a glob.
+#[test]
+fn test_file_functions_match_literal_bracket_directories() -> Result<()> {
+    let project = tempfile::tempdir()?;
+    let route_dir = project.path().join("src/app/posts/[postId]");
+    std::fs::create_dir_all(route_dir.join("__tests__"))?;
+    create_test_file(&route_dir, "page.tsx", "export default function Page() {}")?;
+    create_test_file(&route_dir, "Card.tsx", "export default function Card() {}")?;
+    create_test_file(&route_dir.join("__tests__"), "page.test.tsx", "// tests")?;
+
+    let custom_matchers = HashMap::new();
+    let test_path = route_dir.join("__tests__/page.test.tsx");
+    let context = create_test_evaluation_context(&test_path, &custom_matchers);
+
+    // The sibling-source check admin-tools uses for dynamic-route page tests
+    assert!(eval_bool(
+        "exists(\"../${without($NAME, '.test.tsx')}.tsx\")",
+        &context
+    )?);
+    // Patterns still glob
+    assert!(eval_bool("exists('../*.tsx', 2, 2)", &context)?);
+    // Bounds still apply to literal matches
+    assert!(!eval_bool("exists('../page.tsx', 2, 2)", &context)?);
+
+    assert_eq!(
+        eval_list("siblings('page.test.tsx')", &context)?,
+        vec!["page.test.tsx".to_string()]
+    );
+
+    let route_path = route_dir.to_string_lossy().to_string();
+    assert_eq!(
+        eval_list(&format!("find(\"{route_path}\", \"page.tsx\")"), &context)?,
+        vec!["page.tsx".to_string()]
+    );
+
+    let dir_context = create_test_evaluation_context(&route_dir, &custom_matchers);
+    let mut children = eval_list("children('*.tsx')", &dir_context)?;
+    children.sort();
+    assert_eq!(
+        children,
+        vec!["Card.tsx".to_string(), "page.tsx".to_string()]
+    );
+
+    Ok(())
+}
+
 #[test]
 fn test_siblings_function() -> Result<()> {
     let project = create_advanced_test_project()?;

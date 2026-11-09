@@ -374,3 +374,58 @@ fn test_with_missing_config() -> Result<()> {
 
     Ok(())
 }
+
+/// The dynamic-route sibling rule admin-tools uses: a test inside
+/// `[param]/__tests__` must find its sibling source one directory up. The
+/// brackets in the entry's own path are path characters, not a glob.
+#[test]
+fn test_dynamic_route_sibling_rule() -> Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let root = temp_dir.path();
+    let route_dir = root.join("src/app/posts/[postId]");
+    std::fs::create_dir_all(route_dir.join("__tests__"))?;
+    std::fs::write(
+        route_dir.join("page.tsx"),
+        "export default function Page() {}",
+    )?;
+    std::fs::write(
+        route_dir.join("__tests__").join("page.test.tsx"),
+        "// tests",
+    )?;
+    std::fs::write(
+        root.join("lintp.yml"),
+        r#"lintp:
+  config:
+    "**/__tests__/*":
+      ".test.tsx":
+        rule: >-
+          exists("../${without($NAME, '.test.tsx')}.tsx")
+        message: "a dynamic-route page test needs its page.tsx sibling"
+"#,
+    )?;
+
+    let binary_path = PathBuf::from(env!("CARGO_BIN_EXE_lintp"));
+
+    let output = Command::new(&binary_path).current_dir(root).output()?;
+    assert!(
+        output.status.success(),
+        "bracket directory should match its sibling, got:\n{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    std::fs::remove_file(route_dir.join("page.tsx"))?;
+    let output = Command::new(&binary_path).current_dir(root).output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "a missing sibling must still fail, got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("page.test.tsx") && stdout.contains("page.tsx sibling"),
+        "expected the sibling violation, got:\n{stdout}"
+    );
+
+    Ok(())
+}
